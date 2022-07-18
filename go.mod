@@ -1,4 +1,4 @@
-module github.com/mgx
+module github.com/hummerd/mgx
 
 go 1.17
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mgx"
+	"github.com/hummerd/mgx"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
