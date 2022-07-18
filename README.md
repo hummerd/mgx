@@ -35,3 +35,9 @@ func QueryData(id string, date time.Time) {
     ...
 }
 ```
+
+## Install 
+
+```
+go get github.com/hummerd/mgx@latest
+```
