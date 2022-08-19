@@ -33,7 +33,7 @@ func TestMarshalQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "simple",
+			name: "simple array",
 			args: args{
 				query: `{
 					"_id": ["$1", "$2"]
@@ -45,6 +45,25 @@ func TestMarshalQuery(t *testing.T) {
 			},
 			want: bson.D{
 				{Key: "_id", Value: bson.A{"a", "b"}},
+			},
+		},
+		{
+			name: "not in",
+			args: args{
+				query: `{
+					"a": { "$exists": false },
+					"b": { "$lte": "$1" },
+					"c": { "$nin": ["$2"] }
+				}`,
+				keyValues: []interface{}{
+					"$1", ts,
+					"$2", "periodicfee",
+				},
+			},
+			want: bson.D{
+				{Key: "a", Value: bson.D{{Key: "$exists", Value: false}}},
+				{Key: "b", Value: bson.D{{Key: "$lte", Value: ts}}},
+				{Key: "c", Value: bson.D{{Key: "$nin", Value: bson.A{"periodicfee"}}}},
 			},
 		},
 		{

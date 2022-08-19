@@ -115,7 +115,19 @@ func traverse(node interface{}, prmMap map[string]interface{}) {
 			traverse(e.Value, prmMap)
 		}
 	case bson.A:
-		for _, e := range v {
+		for i, e := range v {
+			s, ok := e.(string)
+			if ok && strings.HasPrefix(s, "$") {
+				pv, ok := prmMap[s]
+				if !ok {
+					continue
+				}
+
+				v[i] = pv
+
+				continue
+			}
+
 			traverse(e, prmMap)
 		}
 	}
