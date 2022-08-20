@@ -20,6 +20,12 @@ var (
 	}}
 )
 
+func NewMarshalledQuery(bsonData *bytes.Buffer) MarshalledQuery {
+	return MarshalledQuery{
+		bsonData: bsonData,
+	}
+}
+
 type MarshalledQuery struct {
 	bsonData *bytes.Buffer
 }
