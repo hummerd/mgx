@@ -26,14 +26,14 @@ func TestCompileToBSON(t *testing.T) {
 			name:  "simple number",
 			query: `a.c > "abc"`,
 			want: &bson.D{
-				{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `"abc"`}}},
+				{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `abc`}}},
 			},
 		},
 		{
 			name:  "simple and",
 			query: `a.c > "abc" and e = 90`,
 			want: &bson.D{
-				{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `"abc"`}}},
+				{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `abc`}}},
 				{Key: `"e"`, Value: int64(90)},
 			},
 		},
@@ -42,9 +42,35 @@ func TestCompileToBSON(t *testing.T) {
 			query: `a.c > "abc" or e = 90`,
 			want: &bson.D{
 				{Key: "$or", Value: bson.A{
-					bson.D{{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `"abc"`}}}},
+					bson.D{{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `abc`}}}},
 					bson.D{{Key: `"e"`, Value: int64(90)}},
 				}},
+			},
+		},
+		{
+			name:  "and or",
+			query: `a.c > "abc" and f = "some" or e = 90`,
+			want: &bson.D{
+				{Key: "$or", Value: bson.A{
+					bson.D{
+						{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `abc`}}},
+						{Key: `"f"`, Value: `some`},
+					},
+					bson.D{{Key: `"e"`, Value: int64(90)}},
+				}},
+			},
+		},
+		{
+			name:  "and or with brackets",
+			query: `a.c > "abc" and (f = "some" or e = 90)`,
+			want: &bson.D{
+				{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `abc`}}},
+				{
+					Key: "$or", Value: bson.A{
+						bson.D{{Key: `"f"`, Value: `some`}},
+						bson.D{{Key: `"e"`, Value: int64(90)}},
+					},
+				},
 			},
 		},
 	}
