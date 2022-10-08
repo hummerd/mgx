@@ -105,16 +105,6 @@ func doc(node, parent *Node, wc writeContext) (docFunc, docFunc, docFunc) {
 		return clauseStart("$or"), elemSep, clauseEnd
 	}
 
-	if node.Op == "and" {
-		if node.Op == pop {
-			// no wrapper needed
-			return emptyDoc, emptyDoc, emptyDoc
-		}
-
-		// }, {
-		return emptyDoc, elemSep, emptyDoc
-	}
-
 	return emptyDoc, emptyDoc, emptyDoc
 }
 
@@ -356,7 +346,7 @@ func (enc NodeEncoder) lookupValue(v interface{}) interface{} {
 func restoreValue(v []byte, t Token) interface{} {
 	switch t {
 	case TString:
-		return string(v)
+		return string(v[1 : len(v)-1])
 	case TNumber:
 		ui := binary.BigEndian.Uint64(v)
 		return int64(ui)
