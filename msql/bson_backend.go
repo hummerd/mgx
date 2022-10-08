@@ -23,9 +23,8 @@ var (
 )
 
 var (
-	tString = reflect.TypeOf(string(""))
-	tD      = reflect.TypeOf(primitive.D{})
-	tA      = reflect.TypeOf(primitive.A{})
+	tD = reflect.TypeOf(primitive.D{})
+	tA = reflect.TypeOf(primitive.A{})
 )
 
 func CompileToBSON(query string, prmMap map[string]interface{}) (mgx.MarshalledQuery, error) {
@@ -49,9 +48,12 @@ func CompileToBSON(query string, prmMap map[string]interface{}) (mgx.MarshalledQ
 	}
 
 	enc := NodeEncoder{prmMap}
-	enc.encodeQuery(n, wc)
+	err = enc.encodeQuery(n, wc)
+	if err != nil {
+		return mgx.MarshalledQuery{}, err
+	}
 
-	return mgx.NewMarshalledQuery(buff), err
+	return mgx.NewMarshalledQuery(buff), nil
 }
 
 type NodeEncoder struct {
@@ -73,7 +75,11 @@ func (enc NodeEncoder) encodeQuery(n *Node, wc writeContext) error {
 	}
 
 	wc.dw = dw
-	enc.writeNodeDocument(wc, n, nil)
+
+	err = enc.writeNodeDocument(wc, n, nil)
+	if err != nil {
+		return err
+	}
 
 	return dw.WriteDocumentEnd()
 }
@@ -183,7 +189,10 @@ func (enc NodeEncoder) writeNodeDocument(wc writeContext, node, parent *Node) er
 	}
 
 	if node.LN != nil {
-		enc.writeNodeDocument(wc, node.LN, node)
+		err := enc.writeNodeDocument(wc, node.LN, node)
+		if err != nil {
+			return err
+		}
 	}
 
 	if node.L != nil {
@@ -201,7 +210,10 @@ func (enc NodeEncoder) writeNodeDocument(wc writeContext, node, parent *Node) er
 	}
 
 	if node.RN != nil {
-		enc.writeNodeDocument(wc, node.RN, node)
+		err = enc.writeNodeDocument(wc, node.RN, node)
+		if err != nil {
+			return err
+		}
 	}
 
 	if node.R != nil {
@@ -262,7 +274,11 @@ func (enc NodeEncoder) encodeElement(wc writeContext, k, v []byte, vt Token, op 
 
 		k = opKey(op)
 		wc.dw = dw
-		enc.encodeElement(wc, k, v, vt, "=")
+
+		err = enc.encodeElement(wc, k, v, vt, "=")
+		if err != nil {
+			return err
+		}
 
 		return dw.WriteDocumentEnd()
 	}
@@ -286,32 +302,6 @@ func opKey(op string) []byte {
 }
 
 func (enc NodeEncoder) encodeValue(ec bsoncodec.EncodeContext, v []byte, vt Token, vw bsonrw.ValueWriter) error {
-	if string(v) == "null" {
-		return vw.WriteNull()
-	}
-
-	rv := restoreValue(v, vt)
-	lv := enc.lookupValue(rv)
-
-	encoder, err := enc.lookupEncoder(ec, reflect.TypeOf(lv))
-	if err != nil {
-		return err
-	}
-
-	err = encoder.EncodeValue(ec, vw, reflect.ValueOf(lv))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (enc NodeEncoder) compileExpression(ec bsoncodec.EncodeContext, k string, v []byte, vt Token, dw bsonrw.DocumentWriter) error {
-	qk := fmt.Sprintf(`"%s"`, k)
-	vw, err := dw.WriteDocumentElement(qk)
-	if err != nil {
-		return err
-	}
-
 	if string(v) == "null" {
 		return vw.WriteNull()
 	}
@@ -355,22 +345,6 @@ func restoreValue(v []byte, t Token) interface{} {
 	}
 
 	return v
-}
-
-func (enc NodeEncoder) lookupReflectValue(val reflect.Value) reflect.Value {
-	if !val.CanConvert(tString) {
-		return val
-	}
-
-	s, ok := val.Interface().(string)
-	if ok && strings.HasPrefix(s, "$") {
-		pv, ok := enc.prmMap[s]
-		if ok {
-			return reflect.ValueOf(pv)
-		}
-	}
-
-	return val
 }
 
 func (enc NodeEncoder) lookupEncoder(ec bsoncodec.EncodeContext, typ reflect.Type) (bsoncodec.ValueEncoder, error) {

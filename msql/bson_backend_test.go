@@ -31,18 +31,18 @@ func TestCompileToBSON(t *testing.T) {
 		},
 		{
 			name:  "simple and",
-			query: `a.c > "abc" and e = 90`,
+			query: `a.c < "abc" and e = 90`,
 			want: &bson.D{
-				{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `abc`}}},
+				{Key: `"a.c"`, Value: bson.D{{Key: `"$lt"`, Value: `abc`}}},
 				{Key: `"e"`, Value: int64(90)},
 			},
 		},
 		{
 			name:  "simple or",
-			query: `a.c > "abc" or e = 90`,
+			query: `a.c >= "abc" or e = 90`,
 			want: &bson.D{
 				{Key: "$or", Value: bson.A{
-					bson.D{{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `abc`}}}},
+					bson.D{{Key: `"a.c"`, Value: bson.D{{Key: `"$gte"`, Value: `abc`}}}},
 					bson.D{{Key: `"e"`, Value: int64(90)}},
 				}},
 			},
@@ -60,6 +60,21 @@ func TestCompileToBSON(t *testing.T) {
 				}},
 			},
 		},
+		{
+			name:  "and or or",
+			query: `a.c <= "abc" and f = "some" or e = 90 or g = 100`,
+			want: &bson.D{
+				{Key: "$or", Value: bson.A{
+					bson.D{
+						{Key: `"a.c"`, Value: bson.D{{Key: `"$lte"`, Value: `abc`}}},
+						{Key: `"f"`, Value: `some`},
+					},
+					bson.D{{Key: `"e"`, Value: int64(90)}},
+					bson.D{{Key: `"g"`, Value: int64(100)}},
+				}},
+			},
+		},
+
 		{
 			name:  "and or with brackets",
 			query: `a.c > "abc" and (f = "some" or e = 90)`,
@@ -100,7 +115,11 @@ func TestCompileToBSON(t *testing.T) {
 
 func printMarshalled(t *testing.T, marshalledQuery []byte) {
 	var q interface{}
-	bson.Unmarshal(marshalledQuery, &q)
+
+	err := bson.Unmarshal(marshalledQuery, &q)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	j, _ := bson.MarshalExtJSONIndent(q, false, true, "", " ")
 	t.Log(string(j))
