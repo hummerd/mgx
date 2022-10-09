@@ -1,4 +1,4 @@
-package msql_test
+package query_test
 
 import (
 	"bytes"
@@ -6,123 +6,123 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hummerd/mgx/msql"
+	"github.com/hummerd/mgx/query"
 )
 
 func TestParser_Parse(t *testing.T) {
 	tests := []struct {
 		name       string
 		expression string
-		want       *msql.Node
+		want       *query.Node
 		wantErr    bool
 	}{
 		{
 			name:       "simple number",
 			expression: "a > 90",
-			want: &msql.Node{
+			want: &query.Node{
 				Op: "and",
-				L: &msql.Expression{
+				L: &query.Expression{
 					Op: ">",
 					L:  []byte("a"),
-					LT: msql.TKey,
+					LT: query.TKey,
 					R:  []byte{0, 0, 0, 0, 0, 0, 0, 90},
-					RT: msql.TNumber,
+					RT: query.TNumber,
 				},
 			},
 		},
 		{
 			name:       "simple string",
 			expression: "a > \"90\"",
-			want: &msql.Node{
+			want: &query.Node{
 				Op: "and",
-				L: &msql.Expression{
+				L: &query.Expression{
 					Op: ">",
 					L:  []byte("a"),
-					LT: msql.TKey,
+					LT: query.TKey,
 					R:  []byte("\"90\""),
-					RT: msql.TString,
+					RT: query.TString,
 				},
 			},
 		},
 		{
 			name:       "simple and",
 			expression: "a > \"90\" and \"don\" = d",
-			want: &msql.Node{
+			want: &query.Node{
 				Op: "and",
-				L: &msql.Expression{
+				L: &query.Expression{
 					Op: ">",
 					L:  []byte("a"),
-					LT: msql.TKey,
+					LT: query.TKey,
 					R:  []byte("\"90\""),
-					RT: msql.TString,
+					RT: query.TString,
 				},
-				R: &msql.Expression{
+				R: &query.Expression{
 					Op: "=",
 					L:  []byte("\"don\""),
-					LT: msql.TString,
+					LT: query.TString,
 					R:  []byte("d"),
-					RT: msql.TKey,
+					RT: query.TKey,
 				},
 			},
 		},
 		{
 			name:       "simple and or",
 			expression: `a > "90" and "don" = d or c = e`,
-			want: &msql.Node{
+			want: &query.Node{
 				Op: "or",
-				LN: &msql.Node{
+				LN: &query.Node{
 					Op: "and",
-					L: &msql.Expression{
+					L: &query.Expression{
 						Op: ">",
 						L:  []byte("a"),
-						LT: msql.TKey,
+						LT: query.TKey,
 						R:  []byte("\"90\""),
-						RT: msql.TString,
+						RT: query.TString,
 					},
-					R: &msql.Expression{
+					R: &query.Expression{
 						Op: "=",
 						L:  []byte("\"don\""),
-						LT: msql.TString,
+						LT: query.TString,
 						R:  []byte("d"),
-						RT: msql.TKey,
+						RT: query.TKey,
 					},
 				},
-				R: &msql.Expression{
+				R: &query.Expression{
 					Op: "=",
 					L:  []byte("c"),
-					LT: msql.TKey,
+					LT: query.TKey,
 					R:  []byte("e"),
-					RT: msql.TKey,
+					RT: query.TKey,
 				},
 			},
 		},
 		{
 			name:       "simple and or with brackets",
 			expression: `a > "90" and ("don" = d or c = e)`,
-			want: &msql.Node{
+			want: &query.Node{
 				Op: "and",
-				L: &msql.Expression{
+				L: &query.Expression{
 					Op: ">",
 					L:  []byte("a"),
-					LT: msql.TKey,
+					LT: query.TKey,
 					R:  []byte("\"90\""),
-					RT: msql.TString,
+					RT: query.TString,
 				},
-				RN: &msql.Node{
+				RN: &query.Node{
 					Op: "or",
-					L: &msql.Expression{
+					L: &query.Expression{
 						Op: "=",
 						L:  []byte("\"don\""),
-						LT: msql.TString,
+						LT: query.TString,
 						R:  []byte("d"),
-						RT: msql.TKey,
+						RT: query.TKey,
 					},
-					R: &msql.Expression{
+					R: &query.Expression{
 						Op: "=",
 						L:  []byte("c"),
-						LT: msql.TKey,
+						LT: query.TKey,
 						R:  []byte("e"),
-						RT: msql.TKey,
+						RT: query.TKey,
 					},
 				},
 			},
@@ -131,8 +131,8 @@ func TestParser_Parse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := msql.NewScanner(strings.NewReader(tt.expression))
-			p := msql.NewParser(s)
+			s := query.NewScanner(strings.NewReader(tt.expression))
+			p := query.NewParser(s)
 
 			got, err := p.Parse()
 			if (err != nil) != tt.wantErr {
@@ -151,7 +151,7 @@ func TestParser_Parse(t *testing.T) {
 	}
 }
 
-func compareNodes(a, b *msql.Node) error {
+func compareNodes(a, b *query.Node) error {
 	if a == nil && b == nil {
 		return nil
 	}
@@ -187,7 +187,7 @@ func compareNodes(a, b *msql.Node) error {
 	return nil
 }
 
-func compareExpressions(a, b *msql.Expression) error {
+func compareExpressions(a, b *query.Expression) error {
 	if a == nil && b == nil {
 		return nil
 	}

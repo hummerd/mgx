@@ -1,4 +1,4 @@
-package msql_test
+package query_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hummerd/mgx/msql"
+	"github.com/hummerd/mgx/query"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -60,7 +60,7 @@ func TestMain(m *testing.M) {
 		coll = client.Database(mgxDB).Collection(mgxCollection)
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-		coll.Drop(ctx)
+		_ = coll.Drop(ctx)
 		addTestItems(ctx, coll)
 		cancel()
 	}
@@ -69,7 +69,7 @@ func TestMain(m *testing.M) {
 
 	if client != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-		client.Disconnect(ctx)
+		_ = client.Disconnect(ctx)
 		cancel()
 	}
 
@@ -84,7 +84,7 @@ func TestDB_FindOne(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	mq, err := msql.CompileToBSON(`name = "item1"`, nil)
+	mq, err := query.CompileToBSON(`name = "item1"`, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestDB_FindMany(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	mq, err := msql.CompileToBSON(`num >= 2`, nil)
+	mq, err := query.CompileToBSON(`num >= 2`, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

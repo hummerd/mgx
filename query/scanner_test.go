@@ -1,10 +1,10 @@
-package msql_test
+package query_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/hummerd/mgx/msql"
+	"github.com/hummerd/mgx/query"
 )
 
 func TestScanner(t *testing.T) {
@@ -15,7 +15,7 @@ func TestScanner(t *testing.T) {
 		"AND", "b", "<", "4", "AND", "\"abc\"", "=", "90",
 	}
 
-	s := msql.NewScanner(strings.NewReader(src))
+	s := query.NewScanner(strings.NewReader(src))
 
 	i := 0
 	for s.Next() == nil {

@@ -1,4 +1,4 @@
-package msql
+package query
 
 import (
 	"bytes"
@@ -26,7 +26,7 @@ var (
 	tA = reflect.TypeOf(primitive.A{})
 )
 
-func CompileToBSON(query string, prmMap map[string]interface{}) (bson.Raw, error) {
+func Prepare(query string) (*BSONEncoder, error) {
 	s := NewScanner(strings.NewReader(query))
 	p := NewParser(s)
 
@@ -35,7 +35,36 @@ func CompileToBSON(query string, prmMap map[string]interface{}) (bson.Raw, error
 		return nil, err
 	}
 
-	buff := buffPool.New().(*bytes.Buffer)
+	return &BSONEncoder{n}, nil
+}
+
+func CompileToBSON(query string, prmMap map[string]interface{}) (CompiledQueryQuery, error) {
+	enc, err := Prepare(query)
+	if err != nil {
+		return CompiledQueryQuery{}, err
+	}
+
+	return enc.Encode(prmMap)
+}
+
+type BSONEncoder struct {
+	node *Node
+}
+
+type CompiledQueryQuery struct {
+	buff *bytes.Buffer
+}
+
+func (pq CompiledQueryQuery) MarshalBSON() ([]byte, error) {
+	return pq.buff.Bytes(), nil
+}
+
+func (pq CompiledQueryQuery) Close() {
+	buffPool.Put(pq.buff)
+}
+
+func (enc BSONEncoder) Encode(prmMap map[string]interface{}) (CompiledQueryQuery, error) {
+	buff := buffPool.Get().(*bytes.Buffer)
 	buff.Reset()
 
 	vw := bvwPool.Get(buff)
@@ -46,28 +75,15 @@ func CompileToBSON(query string, prmMap map[string]interface{}) (bson.Raw, error
 		ec: bsoncodec.EncodeContext{Registry: bson.DefaultRegistry},
 	}
 
-	enc := NodeEncoder{prmMap}
-	err = enc.encodeQuery(n, wc)
+	err := encodeQuery(wc, enc.node, prmMap)
 	if err != nil {
-		return nil, err
+		return CompiledQueryQuery{}, err
 	}
 
-	return bson.Raw(buff.Bytes()), nil
+	return CompiledQueryQuery{buff}, nil
 }
 
-type NodeEncoder struct {
-	prmMap map[string]interface{}
-}
-
-// $or : [
-// 	{}
-// 	{}
-// 	{ $and: [
-
-// 	] }
-// ]
-
-func (enc NodeEncoder) encodeQuery(n *Node, wc writeContext) error {
+func encodeQuery(wc writeContext, node *Node, prmMap map[string]interface{}) error {
 	dw, err := wc.vw.WriteDocument()
 	if err != nil {
 		return err
@@ -75,7 +91,7 @@ func (enc NodeEncoder) encodeQuery(n *Node, wc writeContext) error {
 
 	wc.dw = dw
 
-	err = enc.writeNodeDocument(wc, n, nil)
+	err = writeNodeDocument(wc, node, prmMap)
 	if err != nil {
 		return err
 	}
@@ -179,8 +195,12 @@ func clauseStart(clause string) docFunc {
 	}
 }
 
-func (enc NodeEncoder) writeNodeDocument(wc writeContext, node, parent *Node) error {
-	openDoc, sep, closeDoc := doc(node, parent, wc)
+func writeNodeDocument(
+	wc writeContext,
+	node *Node,
+	prmMap map[string]interface{},
+) error {
+	openDoc, sep, closeDoc := doc(node, node.Parent, wc)
 
 	wc, err := openDoc(wc)
 	if err != nil {
@@ -188,14 +208,14 @@ func (enc NodeEncoder) writeNodeDocument(wc writeContext, node, parent *Node) er
 	}
 
 	if node.LN != nil {
-		err := enc.writeNodeDocument(wc, node.LN, node)
+		err := writeNodeDocument(wc, node.LN, prmMap)
 		if err != nil {
 			return err
 		}
 	}
 
 	if node.L != nil {
-		err := enc.encodeExpression(wc, node.L)
+		err := encodeExpression(wc, node.L, prmMap)
 		if err != nil {
 			return err
 		}
@@ -209,14 +229,14 @@ func (enc NodeEncoder) writeNodeDocument(wc writeContext, node, parent *Node) er
 	}
 
 	if node.RN != nil {
-		err = enc.writeNodeDocument(wc, node.RN, node)
+		err = writeNodeDocument(wc, node.RN, prmMap)
 		if err != nil {
 			return err
 		}
 	}
 
 	if node.R != nil {
-		err := enc.encodeExpression(wc, node.R)
+		err := encodeExpression(wc, node.R, prmMap)
 		if err != nil {
 			return err
 		}
@@ -226,7 +246,11 @@ func (enc NodeEncoder) writeNodeDocument(wc writeContext, node, parent *Node) er
 	return err
 }
 
-func (enc NodeEncoder) encodeExpression(wc writeContext, e *Expression) error {
+func encodeExpression(
+	wc writeContext,
+	e *Expression,
+	prmMap map[string]interface{},
+) error {
 	var k, v []byte
 
 	if e.LT == TKey {
@@ -253,17 +277,23 @@ func (enc NodeEncoder) encodeExpression(wc writeContext, e *Expression) error {
 		vt = e.RT
 	}
 
-	return enc.encodeElement(wc, k, v, vt, e.Op)
+	return encodeElement(wc, k, v, vt, e.Op, prmMap)
 }
 
-func (enc NodeEncoder) encodeElement(wc writeContext, k, v []byte, vt Token, op string) error {
+func encodeElement(
+	wc writeContext,
+	k, v []byte,
+	vt Token,
+	op string,
+	prmMap map[string]interface{},
+) error {
 	vw, err := wc.dw.WriteDocumentElement(string(k))
 	if err != nil {
 		return err
 	}
 
 	if op == "=" {
-		return enc.encodeValue(wc.ec, v, vt, vw)
+		return encodeValue(wc, v, vt, prmMap)
 	} else {
 		dw, err := vw.WriteDocument()
 		if err != nil {
@@ -273,7 +303,7 @@ func (enc NodeEncoder) encodeElement(wc writeContext, k, v []byte, vt Token, op 
 		k = opKey(op)
 		wc.dw = dw
 
-		err = enc.encodeElement(wc, k, v, vt, "=")
+		err = encodeElement(wc, k, v, vt, "=", prmMap)
 		if err != nil {
 			return err
 		}
@@ -299,30 +329,36 @@ func opKey(op string) []byte {
 	return []byte(op)
 }
 
-func (enc NodeEncoder) encodeValue(ec bsoncodec.EncodeContext, v []byte, vt Token, vw bsonrw.ValueWriter) error {
+func encodeValue(
+	wc writeContext,
+	v []byte,
+	vt Token,
+	// vw bsonrw.ValueWriter,
+	prmMap map[string]interface{},
+) error {
 	if string(v) == "null" {
-		return vw.WriteNull()
+		return wc.vw.WriteNull()
 	}
 
 	rv := restoreValue(v, vt)
-	lv := enc.lookupValue(rv)
+	lv := lookupValue(rv, prmMap)
 
-	encoder, err := enc.lookupEncoder(ec, reflect.TypeOf(lv))
+	encoder, err := lookupEncoder(wc.ec, reflect.TypeOf(lv))
 	if err != nil {
 		return err
 	}
 
-	err = encoder.EncodeValue(ec, vw, reflect.ValueOf(lv))
+	err = encoder.EncodeValue(wc.ec, wc.vw, reflect.ValueOf(lv))
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (enc NodeEncoder) lookupValue(v interface{}) interface{} {
+func lookupValue(v interface{}, prmMap map[string]interface{}) interface{} {
 	s, ok := v.(string)
 	if ok && strings.HasPrefix(s, "$") {
-		pv, ok := enc.prmMap[s]
+		pv, ok := prmMap[s]
 		if ok {
 			return pv
 		}
@@ -345,7 +381,7 @@ func restoreValue(v []byte, t Token) interface{} {
 	return v
 }
 
-func (enc NodeEncoder) lookupEncoder(ec bsoncodec.EncodeContext, typ reflect.Type) (bsoncodec.ValueEncoder, error) {
+func lookupEncoder(ec bsoncodec.EncodeContext, typ reflect.Type) (bsoncodec.ValueEncoder, error) {
 	if typ.ConvertibleTo(tD) {
 		return nil, nil
 	} else if typ.ConvertibleTo(tA) {

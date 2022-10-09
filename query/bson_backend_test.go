@@ -1,10 +1,10 @@
-package msql_test
+package query_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/hummerd/mgx/msql"
+	"github.com/hummerd/mgx/query"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -92,12 +92,15 @@ func TestCompileToBSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mq, err := msql.CompileToBSON(tt.query, nil)
+			cq, err := query.CompileToBSON(tt.query, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			// marshalledQuery, _ := mq.MarshalBSON()
+			mq, err := cq.MarshalBSON()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			expectedQuery, err := bson.Marshal(tt.want)
 			if err != nil {
@@ -106,8 +109,10 @@ func TestCompileToBSON(t *testing.T) {
 
 			printMarshalled(t, mq)
 
-			if !reflect.DeepEqual(expectedQuery, []byte(mq)) {
-				t.Errorf("CompileToBSON() = %v, want %v", mq, expectedQuery)
+			if !reflect.DeepEqual(expectedQuery, mq) {
+				t.Errorf("CompileToBSON() = %s, want %s",
+					bson.Raw(mq),
+					bson.Raw(expectedQuery))
 			}
 		})
 	}

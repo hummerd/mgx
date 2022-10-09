@@ -1,4 +1,4 @@
-package msql
+package query
 
 import (
 	"bytes"
