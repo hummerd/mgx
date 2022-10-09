@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hummerd/mgx"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsoncodec"
 	"go.mongodb.org/mongo-driver/bson/bsonrw"
@@ -27,13 +26,13 @@ var (
 	tA = reflect.TypeOf(primitive.A{})
 )
 
-func CompileToBSON(query string, prmMap map[string]interface{}) (mgx.MarshalledQuery, error) {
+func CompileToBSON(query string, prmMap map[string]interface{}) (bson.Raw, error) {
 	s := NewScanner(strings.NewReader(query))
 	p := NewParser(s)
 
 	n, err := p.Parse()
 	if err != nil {
-		return mgx.MarshalledQuery{}, err
+		return nil, err
 	}
 
 	buff := buffPool.New().(*bytes.Buffer)
@@ -50,10 +49,10 @@ func CompileToBSON(query string, prmMap map[string]interface{}) (mgx.MarshalledQ
 	enc := NodeEncoder{prmMap}
 	err = enc.encodeQuery(n, wc)
 	if err != nil {
-		return mgx.MarshalledQuery{}, err
+		return nil, err
 	}
 
-	return mgx.NewMarshalledQuery(buff), nil
+	return bson.Raw(buff.Bytes()), nil
 }
 
 type NodeEncoder struct {
@@ -258,8 +257,7 @@ func (enc NodeEncoder) encodeExpression(wc writeContext, e *Expression) error {
 }
 
 func (enc NodeEncoder) encodeElement(wc writeContext, k, v []byte, vt Token, op string) error {
-	qk := fmt.Sprintf(`"%s"`, k)
-	vw, err := wc.dw.WriteDocumentElement(qk)
+	vw, err := wc.dw.WriteDocumentElement(string(k))
 	if err != nil {
 		return err
 	}

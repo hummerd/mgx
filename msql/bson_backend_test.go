@@ -19,22 +19,22 @@ func TestCompileToBSON(t *testing.T) {
 			name:  "simple number",
 			query: "a = 90",
 			want: &bson.D{
-				{Key: `"a"`, Value: int64(90)},
+				{Key: `a`, Value: int64(90)},
 			},
 		},
 		{
-			name:  "simple number",
+			name:  "simple string",
 			query: `a.c > "abc"`,
 			want: &bson.D{
-				{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `abc`}}},
+				{Key: `a.c`, Value: bson.D{{Key: `$gt`, Value: `abc`}}},
 			},
 		},
 		{
 			name:  "simple and",
 			query: `a.c < "abc" and e = 90`,
 			want: &bson.D{
-				{Key: `"a.c"`, Value: bson.D{{Key: `"$lt"`, Value: `abc`}}},
-				{Key: `"e"`, Value: int64(90)},
+				{Key: `a.c`, Value: bson.D{{Key: `$lt`, Value: `abc`}}},
+				{Key: `e`, Value: int64(90)},
 			},
 		},
 		{
@@ -42,8 +42,8 @@ func TestCompileToBSON(t *testing.T) {
 			query: `a.c >= "abc" or e = 90`,
 			want: &bson.D{
 				{Key: "$or", Value: bson.A{
-					bson.D{{Key: `"a.c"`, Value: bson.D{{Key: `"$gte"`, Value: `abc`}}}},
-					bson.D{{Key: `"e"`, Value: int64(90)}},
+					bson.D{{Key: `a.c`, Value: bson.D{{Key: `$gte`, Value: `abc`}}}},
+					bson.D{{Key: `e`, Value: int64(90)}},
 				}},
 			},
 		},
@@ -53,10 +53,10 @@ func TestCompileToBSON(t *testing.T) {
 			want: &bson.D{
 				{Key: "$or", Value: bson.A{
 					bson.D{
-						{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `abc`}}},
-						{Key: `"f"`, Value: `some`},
+						{Key: `a.c`, Value: bson.D{{Key: `$gt`, Value: `abc`}}},
+						{Key: `f`, Value: `some`},
 					},
-					bson.D{{Key: `"e"`, Value: int64(90)}},
+					bson.D{{Key: `e`, Value: int64(90)}},
 				}},
 			},
 		},
@@ -66,11 +66,11 @@ func TestCompileToBSON(t *testing.T) {
 			want: &bson.D{
 				{Key: "$or", Value: bson.A{
 					bson.D{
-						{Key: `"a.c"`, Value: bson.D{{Key: `"$lte"`, Value: `abc`}}},
-						{Key: `"f"`, Value: `some`},
+						{Key: `a.c`, Value: bson.D{{Key: `$lte`, Value: `abc`}}},
+						{Key: `f`, Value: `some`},
 					},
-					bson.D{{Key: `"e"`, Value: int64(90)}},
-					bson.D{{Key: `"g"`, Value: int64(100)}},
+					bson.D{{Key: `e`, Value: int64(90)}},
+					bson.D{{Key: `g`, Value: int64(100)}},
 				}},
 			},
 		},
@@ -79,11 +79,11 @@ func TestCompileToBSON(t *testing.T) {
 			name:  "and or with brackets",
 			query: `a.c > "abc" and (f = "some" or e = 90)`,
 			want: &bson.D{
-				{Key: `"a.c"`, Value: bson.D{{Key: `"$gt"`, Value: `abc`}}},
+				{Key: `a.c`, Value: bson.D{{Key: `$gt`, Value: `abc`}}},
 				{
 					Key: "$or", Value: bson.A{
-						bson.D{{Key: `"f"`, Value: `some`}},
-						bson.D{{Key: `"e"`, Value: int64(90)}},
+						bson.D{{Key: `f`, Value: `some`}},
+						bson.D{{Key: `e`, Value: int64(90)}},
 					},
 				},
 			},
@@ -97,17 +97,17 @@ func TestCompileToBSON(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			marshalledQuery, _ := mq.MarshalBSON()
+			// marshalledQuery, _ := mq.MarshalBSON()
 
 			expectedQuery, err := bson.Marshal(tt.want)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			printMarshalled(t, marshalledQuery)
+			printMarshalled(t, mq)
 
-			if !reflect.DeepEqual(expectedQuery, marshalledQuery) {
-				t.Errorf("CompileToBSON() = %v, want %v", marshalledQuery, expectedQuery)
+			if !reflect.DeepEqual(expectedQuery, []byte(mq)) {
+				t.Errorf("CompileToBSON() = %v, want %v", mq, expectedQuery)
 			}
 		})
 	}

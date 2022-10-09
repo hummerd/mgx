@@ -1,0 +1,16 @@
+# comoose for local dev environment
+services:
+  mongodb:
+    image: mongo:6
+    ports:
+      - '27017:27017'
+    environment:
+      - MONGO_DATA_DIR=/data/mongodb
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo mongo:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
