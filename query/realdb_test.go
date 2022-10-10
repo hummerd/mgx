@@ -84,7 +84,7 @@ func TestDB_FindOne(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	mq, err := query.CompileToBSON(`name = "item1"`, nil)
+	mq, err := query.Compile(`name = "item1"`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestDB_FindMany(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	mq, err := query.CompileToBSON(`num >= 2`, nil)
+	mq, err := query.Compile(`num >= 2`)
 	if err != nil {
 		t.Fatal(err)
 	}

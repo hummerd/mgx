@@ -3,6 +3,7 @@ package query
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -26,7 +27,16 @@ var (
 	tA = reflect.TypeOf(primitive.A{})
 )
 
-func Prepare(query string) (*BSONEncoder, error) {
+func MustPrepare(query string) *PreparedQuery {
+	pq, err := Prepare(query)
+	if err != nil {
+		panic(err)
+	}
+
+	return pq
+}
+
+func Prepare(query string) (*PreparedQuery, error) {
 	s := NewScanner(strings.NewReader(query))
 	p := NewParser(s)
 
@@ -35,35 +45,49 @@ func Prepare(query string) (*BSONEncoder, error) {
 		return nil, err
 	}
 
-	return &BSONEncoder{n}, nil
+	return &PreparedQuery{n}, nil
 }
 
-func CompileToBSON(query string, prmMap map[string]interface{}) (CompiledQueryQuery, error) {
-	enc, err := Prepare(query)
-	if err != nil {
-		return CompiledQueryQuery{}, err
-	}
-
-	return enc.Encode(prmMap)
-}
-
-type BSONEncoder struct {
-	node *Node
-}
-
-type CompiledQueryQuery struct {
+type CompiledQuery struct {
 	buff *bytes.Buffer
 }
 
-func (pq CompiledQueryQuery) MarshalBSON() ([]byte, error) {
+func (pq CompiledQuery) MarshalBSON() ([]byte, error) {
 	return pq.buff.Bytes(), nil
 }
 
-func (pq CompiledQueryQuery) Close() {
+func (pq CompiledQuery) Discard() {
 	buffPool.Put(pq.buff)
 }
 
-func (enc BSONEncoder) Encode(prmMap map[string]interface{}) (CompiledQueryQuery, error) {
+func MustCompile(query string, params ...interface{}) CompiledQuery {
+	cq, err := Compile(query, params...)
+	if err != nil {
+		panic(err)
+	}
+
+	return cq
+}
+
+func Compile(query string, params ...interface{}) (CompiledQuery, error) {
+	enc, err := Prepare(query)
+	if err != nil {
+		return CompiledQuery{}, err
+	}
+
+	return enc.Compile(params...)
+}
+
+type PreparedQuery struct {
+	node *Node
+}
+
+func (enc PreparedQuery) Compile(params ...interface{}) (CompiledQuery, error) {
+	prmMap, err := makeParamMap(params...)
+	if err != nil {
+		return CompiledQuery{}, err
+	}
+
 	buff := buffPool.Get().(*bytes.Buffer)
 	buff.Reset()
 
@@ -75,12 +99,12 @@ func (enc BSONEncoder) Encode(prmMap map[string]interface{}) (CompiledQueryQuery
 		ec: bsoncodec.EncodeContext{Registry: bson.DefaultRegistry},
 	}
 
-	err := encodeQuery(wc, enc.node, prmMap)
+	err = encodeQuery(wc, enc.node, prmMap)
 	if err != nil {
-		return CompiledQueryQuery{}, err
+		return CompiledQuery{}, err
 	}
 
-	return CompiledQueryQuery{buff}, nil
+	return CompiledQuery{buff}, nil
 }
 
 func encodeQuery(wc writeContext, node *Node, prmMap map[string]interface{}) error {
@@ -389,4 +413,27 @@ func lookupEncoder(ec bsoncodec.EncodeContext, typ reflect.Type) (bsoncodec.Valu
 	}
 
 	return ec.LookupEncoder(typ)
+}
+
+func makeParamMap(keyValues ...interface{}) (map[string]interface{}, error) {
+	if len(keyValues) == 0 {
+		return nil, nil
+	}
+
+	if len(keyValues)%2 != 0 {
+		return nil, errors.New("keyValues should be pairs of string key and any value")
+	}
+
+	prmMap := make(map[string]interface{}, len(keyValues)/2)
+
+	for i := 0; i < len(keyValues); i += 2 {
+		s, ok := keyValues[i].(string)
+		if !ok {
+			return nil, fmt.Errorf("parameter key %v must be string", keyValues[i])
+		}
+
+		prmMap[s] = keyValues[i+1]
+	}
+
+	return prmMap, nil
 }

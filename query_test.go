@@ -154,10 +154,9 @@ func TestMustParseQueryCachedRace(t *testing.T) {
 			defer wg.Done()
 
 			for ctx.Err() == nil {
-				cc := mgx.MustParseQuery(query,
+				_ = mgx.MustParseQuery(query,
 					"$1", "abc",
 					"$2", ts)
-				t.Log(cc)
 				time.Sleep(time.Millisecond * 100)
 			}
 		}()

@@ -1,8 +1,12 @@
 package query_test
 
 import (
+	"context"
+	"fmt"
 	"reflect"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/hummerd/mgx/query"
 	"go.mongodb.org/mongo-driver/bson"
@@ -92,7 +96,7 @@ func TestCompileToBSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cq, err := query.CompileToBSON(tt.query, nil)
+			cq, err := query.Compile(tt.query)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -128,4 +132,107 @@ func printMarshalled(t *testing.T, marshalledQuery []byte) {
 
 	j, _ := bson.MarshalExtJSONIndent(q, false, true, "", " ")
 	t.Log(string(j))
+}
+
+func TestEncoder_ConcurrentEncode(t *testing.T) {
+	pq, err := query.Prepare(`a >= "$prm"`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errs := [4]error{}
+
+	expNumBson := bson.D{
+		{Key: "a", Value: bson.D{{Key: "$gte", Value: 20}}},
+	}
+	expNumBytes, err := bson.Marshal(expNumBson)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wg := sync.WaitGroup{}
+
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+
+		go func(i int) {
+			defer wg.Done()
+
+			for {
+				if ctx.Err() != nil {
+					return
+				}
+
+				q, err := pq.Compile("$prm", 20)
+				if err != nil {
+					errs[i] = err
+					return
+				}
+
+				qb, err := q.MarshalBSON()
+				if err != nil {
+					errs[i] = err
+					return
+				}
+
+				if !reflect.DeepEqual(qb, expNumBytes) {
+					errs[i] = fmt.Errorf("unexpected num bson")
+					return
+				}
+			}
+		}(i)
+	}
+
+	testDate := time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	expTimeBson := bson.D{
+		{Key: "a", Value: bson.D{{Key: "$gte", Value: testDate}}},
+	}
+	expTimeBytes, err := bson.Marshal(expTimeBson)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 2; i < 4; i++ {
+		wg.Add(1)
+
+		go func(i int) {
+			defer wg.Done()
+
+			for {
+				if ctx.Err() != nil {
+					return
+				}
+
+				q, err := pq.Compile("$prm", testDate)
+				if err != nil {
+					errs[i] = err
+					return
+				}
+
+				qb, err := q.MarshalBSON()
+				if err != nil {
+					errs[i] = err
+					return
+				}
+
+				if !reflect.DeepEqual(qb, expTimeBytes) {
+					errs[i] = fmt.Errorf("unexpected time bson")
+					return
+				}
+			}
+		}(i)
+	}
+
+	time.Sleep(5 * time.Second)
+	cancel()
+
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 }
