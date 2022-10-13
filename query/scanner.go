@@ -14,6 +14,7 @@ const (
 	TString
 	TOp
 	TParentheses
+	TRegex
 )
 
 type pos struct {

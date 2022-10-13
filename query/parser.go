@@ -3,15 +3,19 @@ package query
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 )
 
 var (
-	keyOr  = []byte("or")
-	keyAnd = []byte("and")
+	keyOr           = []byte("or")
+	keyAnd          = []byte("and")
+	keyFuncDate     = []byte("ISODate")
+	keyFuncObjectID = []byte("ObjectId")
 )
 
 var ErrParsed = errors.New("text parsed")
@@ -148,17 +152,28 @@ func (n *Node) Reduce() (*Node, *Expression) {
 	return n, nil
 }
 
+type ValueType uint
+
+const (
+	VTKey ValueType = iota + 1
+	VTNumber
+	VTString
+	VTRegex
+	VTDate
+	VTObjectID
+)
+
 type Expression struct {
 	Op   string
 	L    []byte
-	LT   Token
+	LT   ValueType
 	R    []byte
-	RT   Token
+	RT   ValueType
 	S, T pos
 }
 
 func (e *Expression) String() string {
-	return fmt.Sprintf("%s %s %s", e.L, e.Op, e.R)
+	return fmt.Sprintf("%X %s %X", e.L, e.Op, e.R)
 }
 
 func NewParser(s *Scanner) *Parser {
@@ -313,13 +328,7 @@ func (p *Parser) readAndCheckToken(canBeEnd bool, unexpected string, tokens ...T
 func (p *Parser) parseExpression(startT Token, startL []byte) (Expression, error) {
 	var e Expression
 
-	// t, l, err := p.readAndCheckToken(true, "", TKey, TNumber, TString)
-	// if err != nil {
-	// 	return e, err
-	// }
-
-	e.L = tokenValue(startT, startL)
-	e.LT = startT
+	e.L, e.LT = p.tokenValue(startT, startL)
 	// e.S = p.s.Position()
 
 	_, l, err := p.readAndCheckToken(false, "unexpected end of expression", TOp, TKey)
@@ -334,22 +343,89 @@ func (p *Parser) parseExpression(startT Token, startL []byte) (Expression, error
 		return e, err
 	}
 
-	e.R = tokenValue(t, l)
-	e.RT = t
+	e.R, e.RT = p.tokenValue(t, l)
 
 	return e, nil
 }
 
-func tokenValue(t Token, l []byte) []byte {
+func (p *Parser) tokenValue(t Token, l []byte) ([]byte, ValueType) {
 	switch t {
 	case TString:
-		return append([]byte(nil), l...)
+		return append([]byte(nil), l...), VTString
 	case TNumber:
 		n, _ := strconv.Atoi(string(l))
-		return binary.BigEndian.AppendUint64(nil, uint64(n))
+		return binary.BigEndian.AppendUint64(nil, uint64(n)), VTNumber
 	case TKey:
-		return append([]byte(nil), l...)
+		switch {
+		case bytes.Equal(l, keyFuncObjectID):
+			return p.parseFuncObjectID()
+		case bytes.Equal(l, keyFuncDate):
+			return p.parseFuncDate()
+		default:
+			return append([]byte(nil), l...), VTKey
+		}
 	}
 
-	return nil
+	return nil, 0
+}
+
+func (p *Parser) parseFuncObjectID() ([]byte, ValueType) {
+	_, op, err := p.readAndCheckToken(false, "unexpected end of script", TParentheses)
+	if err != nil {
+		return nil, 0
+	}
+
+	if len(op) != 1 || op[0] != '(' {
+		return nil, 0
+	}
+
+	_, v, err := p.readAndCheckToken(false, "unexpected end of script", TString)
+	if err != nil {
+		return nil, 0
+	}
+
+	v = v[1 : len(v)-1]
+	h := make([]byte, hex.DecodedLen(len(v)))
+	_, _ = hex.Decode(h, v)
+
+	_, cp, err := p.readAndCheckToken(false, "unexpected end of script", TParentheses)
+	if err != nil {
+		return nil, 0
+	}
+
+	if len(cp) != 1 || cp[0] != ')' {
+		return nil, 0
+	}
+
+	return h, VTObjectID
+}
+
+func (p *Parser) parseFuncDate() ([]byte, ValueType) {
+	_, op, err := p.readAndCheckToken(false, "unexpected end of script", TParentheses)
+	if err != nil {
+		return nil, 0
+	}
+
+	if len(op) != 1 || op[0] != '(' {
+		return nil, 0
+	}
+
+	_, v, err := p.readAndCheckToken(false, "unexpected end of script", TString)
+	if err != nil {
+		return nil, 0
+	}
+
+	dts := string(v[1 : len(v)-1])
+
+	_, cp, err := p.readAndCheckToken(false, "unexpected end of script", TParentheses)
+	if err != nil {
+		return nil, 0
+	}
+
+	if len(cp) != 1 || cp[0] != ')' {
+		return nil, 0
+	}
+
+	dt, _ := time.Parse(time.RFC3339Nano, dts)
+	return binary.BigEndian.AppendUint64(nil, uint64(dt.UnixMilli())), VTDate
 }

@@ -2,14 +2,23 @@ package query_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hummerd/mgx/query"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func TestParser_Parse(t *testing.T) {
+	testTime := time.Date(2022, 1, 1, 0, 0, 0, 200*1000000, time.UTC)
+	btestTime := binary.BigEndian.AppendUint64(nil, uint64(primitive.NewDateTimeFromTime(testTime)))
+
+	testOid, _ := primitive.ObjectIDFromHex("507f191e810c19729de860ea")
+	btestOid := testOid[:]
+
 	tests := []struct {
 		name       string
 		expression string
@@ -24,9 +33,9 @@ func TestParser_Parse(t *testing.T) {
 				L: &query.Expression{
 					Op: ">",
 					L:  []byte("a"),
-					LT: query.TKey,
+					LT: query.VTKey,
 					R:  []byte{0, 0, 0, 0, 0, 0, 0, 90},
-					RT: query.TNumber,
+					RT: query.VTNumber,
 				},
 			},
 		},
@@ -38,9 +47,37 @@ func TestParser_Parse(t *testing.T) {
 				L: &query.Expression{
 					Op: ">",
 					L:  []byte("a"),
-					LT: query.TKey,
+					LT: query.VTKey,
 					R:  []byte("\"90\""),
-					RT: query.TString,
+					RT: query.VTString,
+				},
+			},
+		},
+		{
+			name:       "simple date time",
+			expression: `a > ISODate("2022-01-01T00:00:00.200Z")`,
+			want: &query.Node{
+				Op: "and",
+				L: &query.Expression{
+					Op: ">",
+					L:  []byte("a"),
+					LT: query.VTKey,
+					R:  btestTime,
+					RT: query.VTDate,
+				},
+			},
+		},
+		{
+			name:       "simple object id",
+			expression: `a = ObjectId("507f191e810c19729de860ea")`,
+			want: &query.Node{
+				Op: "and",
+				L: &query.Expression{
+					Op: "=",
+					L:  []byte("a"),
+					LT: query.VTKey,
+					R:  btestOid,
+					RT: query.VTObjectID,
 				},
 			},
 		},
@@ -52,16 +89,16 @@ func TestParser_Parse(t *testing.T) {
 				L: &query.Expression{
 					Op: ">",
 					L:  []byte("a"),
-					LT: query.TKey,
+					LT: query.VTKey,
 					R:  []byte("\"90\""),
-					RT: query.TString,
+					RT: query.VTString,
 				},
 				R: &query.Expression{
 					Op: "=",
 					L:  []byte("\"don\""),
-					LT: query.TString,
+					LT: query.VTString,
 					R:  []byte("d"),
-					RT: query.TKey,
+					RT: query.VTKey,
 				},
 			},
 		},
@@ -75,24 +112,24 @@ func TestParser_Parse(t *testing.T) {
 					L: &query.Expression{
 						Op: ">",
 						L:  []byte("a"),
-						LT: query.TKey,
+						LT: query.VTKey,
 						R:  []byte("\"90\""),
-						RT: query.TString,
+						RT: query.VTString,
 					},
 					R: &query.Expression{
 						Op: "=",
 						L:  []byte("\"don\""),
-						LT: query.TString,
+						LT: query.VTString,
 						R:  []byte("d"),
-						RT: query.TKey,
+						RT: query.VTKey,
 					},
 				},
 				R: &query.Expression{
 					Op: "=",
 					L:  []byte("c"),
-					LT: query.TKey,
+					LT: query.VTKey,
 					R:  []byte("e"),
-					RT: query.TKey,
+					RT: query.VTKey,
 				},
 			},
 		},
@@ -104,25 +141,25 @@ func TestParser_Parse(t *testing.T) {
 				L: &query.Expression{
 					Op: ">",
 					L:  []byte("a"),
-					LT: query.TKey,
+					LT: query.VTKey,
 					R:  []byte("\"90\""),
-					RT: query.TString,
+					RT: query.VTString,
 				},
 				RN: &query.Node{
 					Op: "or",
 					L: &query.Expression{
 						Op: "=",
 						L:  []byte("\"don\""),
-						LT: query.TString,
+						LT: query.VTString,
 						R:  []byte("d"),
-						RT: query.TKey,
+						RT: query.VTKey,
 					},
 					R: &query.Expression{
 						Op: "=",
 						L:  []byte("c"),
-						LT: query.TKey,
+						LT: query.VTKey,
 						R:  []byte("e"),
-						RT: query.TKey,
+						RT: query.VTKey,
 					},
 				},
 			},

@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsoncodec"
 	"go.mongodb.org/mongo-driver/bson/bsonrw"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var (
@@ -271,11 +272,11 @@ func encodeExpression(
 ) error {
 	var k, v []byte
 
-	if e.LT == TKey {
+	if e.LT == VTKey {
 		k = e.L
 	}
 
-	if e.RT == TKey {
+	if e.RT == VTKey {
 		k = e.R
 	}
 
@@ -283,14 +284,14 @@ func encodeExpression(
 		return fmt.Errorf("no key for expression")
 	}
 
-	var vt Token
+	var vt ValueType
 
-	if e.LT != TKey {
+	if e.LT != VTKey {
 		v = e.L
 		vt = e.LT
 	}
 
-	if e.RT != TKey {
+	if e.RT != VTKey {
 		v = e.R
 		vt = e.RT
 	}
@@ -301,7 +302,7 @@ func encodeExpression(
 func encodeElement(
 	wc writeContext,
 	k, v []byte,
-	vt Token,
+	vt ValueType,
 	op string,
 	prmMap map[string]interface{},
 ) error {
@@ -350,7 +351,7 @@ func opKey(op string) []byte {
 func encodeValue(
 	wc writeContext,
 	v []byte,
-	vt Token,
+	vt ValueType,
 	prmMap map[string]interface{},
 ) error {
 	if string(v) == "null" {
@@ -358,7 +359,7 @@ func encodeValue(
 	}
 
 	switch vt {
-	case TString:
+	case VTString:
 		sv := string(v[1 : len(v)-1])
 		ok, lv := lookupValue(sv, prmMap)
 		if ok {
@@ -371,11 +372,23 @@ func encodeValue(
 		}
 
 		return wc.vw.WriteString(sv)
-	case TNumber:
+	case VTNumber:
 		ui := binary.BigEndian.Uint64(v)
 		return wc.vw.WriteInt64(int64(ui))
-	case TKey:
+	case VTKey:
 		return wc.vw.WriteString(string(v))
+	case VTDate:
+		dt := binary.BigEndian.Uint64(v)
+		return wc.vw.WriteDateTime(int64(dt))
+	case VTObjectID:
+		if len(v) != 12 {
+			return fmt.Errorf("invalid object id")
+		}
+
+		var oid primitive.ObjectID
+		copy(oid[:], v)
+
+		return wc.vw.WriteObjectID(oid)
 	}
 
 	return nil
