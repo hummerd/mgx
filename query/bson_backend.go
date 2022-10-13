@@ -12,7 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsoncodec"
 	"go.mongodb.org/mongo-driver/bson/bsonrw"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var (
@@ -20,11 +19,6 @@ var (
 	buffPool = sync.Pool{New: func() interface{} {
 		return &bytes.Buffer{}
 	}}
-)
-
-var (
-	tD = reflect.TypeOf(primitive.D{})
-	tA = reflect.TypeOf(primitive.A{})
 )
 
 func MustPrepare(query string) *PreparedQuery {
@@ -357,62 +351,45 @@ func encodeValue(
 	wc writeContext,
 	v []byte,
 	vt Token,
-	// vw bsonrw.ValueWriter,
 	prmMap map[string]interface{},
 ) error {
 	if string(v) == "null" {
 		return wc.vw.WriteNull()
 	}
 
-	rv := restoreValue(v, vt)
-	lv := lookupValue(rv, prmMap)
+	switch vt {
+	case TString:
+		sv := string(v[1 : len(v)-1])
+		ok, lv := lookupValue(sv, prmMap)
+		if ok {
+			enc, err := wc.ec.LookupEncoder(reflect.TypeOf(lv))
+			if err != nil {
+				return err
+			}
 
-	encoder, err := lookupEncoder(wc.ec, reflect.TypeOf(lv))
-	if err != nil {
-		return err
+			return enc.EncodeValue(wc.ec, wc.vw, reflect.ValueOf(lv))
+		}
+
+		return wc.vw.WriteString(sv)
+	case TNumber:
+		ui := binary.BigEndian.Uint64(v)
+		return wc.vw.WriteInt64(int64(ui))
+	case TKey:
+		return wc.vw.WriteString(string(v))
 	}
 
-	err = encoder.EncodeValue(wc.ec, wc.vw, reflect.ValueOf(lv))
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
-func lookupValue(v interface{}, prmMap map[string]interface{}) interface{} {
-	s, ok := v.(string)
-	if ok && strings.HasPrefix(s, "$") {
-		pv, ok := prmMap[s]
+func lookupValue(v string, prmMap map[string]interface{}) (bool, interface{}) {
+	if strings.HasPrefix(v, "$") {
+		pv, ok := prmMap[v]
 		if ok {
-			return pv
+			return ok, pv
 		}
 	}
 
-	return v
-}
-
-func restoreValue(v []byte, t Token) interface{} {
-	switch t {
-	case TString:
-		return string(v[1 : len(v)-1])
-	case TNumber:
-		ui := binary.BigEndian.Uint64(v)
-		return int64(ui)
-	case TKey:
-		return string(v)
-	}
-
-	return v
-}
-
-func lookupEncoder(ec bsoncodec.EncodeContext, typ reflect.Type) (bsoncodec.ValueEncoder, error) {
-	if typ.ConvertibleTo(tD) {
-		return nil, nil
-	} else if typ.ConvertibleTo(tA) {
-		return nil, nil
-	}
-
-	return ec.LookupEncoder(typ)
+	return false, nil
 }
 
 func makeParamMap(keyValues ...interface{}) (map[string]interface{}, error) {

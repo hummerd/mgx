@@ -1,4 +1,5 @@
-# comoose for local dev environment
+# compose for local dev environment
+# also used for integration tests
 services:
   mongodb:
     image: mongo:6
