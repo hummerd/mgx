@@ -338,7 +338,7 @@ func (p *Parser) parseExpression(startT Token, startL []byte) (Expression, error
 
 	e.Op = string(l)
 
-	t, l, err := p.readAndCheckToken(false, "unexpected end of expression", TKey, TNumber, TString)
+	t, l, err := p.readAndCheckToken(false, "unexpected end of expression", TKey, TNumber, TString, TRegex)
 	if err != nil {
 		return e, err
 	}
@@ -352,6 +352,8 @@ func (p *Parser) tokenValue(t Token, l []byte) ([]byte, ValueType) {
 	switch t {
 	case TString:
 		return append([]byte(nil), l...), VTString
+	case TRegex:
+		return append([]byte(nil), l...), VTRegex
 	case TNumber:
 		n, _ := strconv.Atoi(string(l))
 		return binary.BigEndian.AppendUint64(nil, uint64(n)), VTNumber

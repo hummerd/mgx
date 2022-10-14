@@ -10,6 +10,7 @@ import (
 
 	"github.com/hummerd/mgx/query"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func TestCompileToBSON(t *testing.T) {
@@ -31,6 +32,20 @@ func TestCompileToBSON(t *testing.T) {
 			query: `a.c > "abc"`,
 			want: &bson.D{
 				{Key: `a.c`, Value: bson.D{{Key: `$gt`, Value: `abc`}}},
+			},
+		},
+		{
+			name:  "simple regex",
+			query: `a.c $regex /abc/`,
+			want: &bson.D{
+				{Key: `a.c`, Value: bson.D{{Key: `$regex`, Value: primitive.Regex{Pattern: `abc`}}}},
+			},
+		},
+		{
+			name:  "simple regex with options",
+			query: `a.c $regex /abc/ig`,
+			want: &bson.D{
+				{Key: `a.c`, Value: bson.D{{Key: `$regex`, Value: primitive.Regex{Pattern: `abc`, Options: `ig`}}}},
 			},
 		},
 		{

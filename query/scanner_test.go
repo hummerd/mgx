@@ -8,11 +8,12 @@ import (
 )
 
 func TestScanner(t *testing.T) {
-	src := `a > 75 AND (d OR c)   AND b < 4 AND "abc" = 90`
+	src := `a > 75 AND (d OR c)   AND b < 4 AND "abc" = 90 AND g $regex /abc/ig`
 
 	exp := []string{
 		"a", ">", "75", "AND", "(", "d", "OR", "c", ")",
 		"AND", "b", "<", "4", "AND", "\"abc\"", "=", "90",
+		"AND", "g", "$regex", "/abc/ig",
 	}
 
 	s := query.NewScanner(strings.NewReader(src))

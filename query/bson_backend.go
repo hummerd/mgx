@@ -343,6 +343,8 @@ func opKey(op string) []byte {
 		return []byte("$lte")
 	case "=":
 		return []byte("$eq")
+	case "$regex":
+		return []byte("$regex")
 	}
 
 	return []byte(op)
@@ -389,6 +391,15 @@ func encodeValue(
 		copy(oid[:], v)
 
 		return wc.vw.WriteObjectID(oid)
+	case VTRegex:
+		ls := bytes.LastIndex(v, []byte{'/'})
+		p := string(v[1:ls])
+		o := ""
+		if ls+1 < len(v) {
+			o = string(v[ls+1:])
+		}
+
+		return wc.vw.WriteRegex(p, o)
 	}
 
 	return nil

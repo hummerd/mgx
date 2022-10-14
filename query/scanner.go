@@ -78,7 +78,11 @@ func (s *Scanner) Next() error {
 			case isString(c):
 				s.match = isString
 				s.tok = TString
-				return s.readString()
+				return s.readString('"')
+			case isRegex(c):
+				s.match = isRegex
+				s.tok = TRegex
+				return s.readRegex()
 			case isParentheses(c):
 				s.match = isParentheses
 				s.tok = TParentheses
@@ -127,8 +131,26 @@ func (s *Scanner) read() error {
 	return nil
 }
 
-func (s *Scanner) readString() error {
-	s.lit = append(s.lit, '"')
+func (s *Scanner) readRegex() error {
+	err := s.readString('/')
+	if err != nil {
+		return err
+	}
+
+	s.match = isKey
+	err = s.read()
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (s *Scanner) readString(quoteSym byte) error {
+	s.lit = append(s.lit, quoteSym)
 	s.bufPos++
 
 	for {
@@ -139,7 +161,7 @@ func (s *Scanner) readString() error {
 			}
 		}
 
-		closePos := bytes.IndexByte(s.buf[s.bufPos:s.bufLen], '"')
+		closePos := bytes.IndexByte(s.buf[s.bufPos:s.bufLen], quoteSym)
 		if closePos == -1 {
 			s.lit = append(s.lit, s.buf[s.bufPos:s.bufLen]...)
 			s.pos.c += (s.bufLen - s.bufPos)
@@ -208,7 +230,8 @@ func isKey(s byte) bool {
 		(s >= 'A' && s <= 'Z') ||
 		s == '_' ||
 		s == '.' ||
-		s == '-'
+		s == '-' ||
+		s == '$'
 }
 
 func isOp(s byte) bool {
@@ -221,6 +244,10 @@ func isNumber(s byte) bool {
 
 func isString(s byte) bool {
 	return s == '"'
+}
+
+func isRegex(s byte) bool {
+	return s == '/'
 }
 
 func isParentheses(s byte) bool {
