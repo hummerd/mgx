@@ -214,6 +214,46 @@ func clauseStart(clause string) docFunc {
 	}
 }
 
+func encodeExpressionList(
+	wc writeContext,
+	exp *Expression,
+	prmMap map[string]interface{},
+) error {
+	openDoc, sep, closeDoc := clauseStart("$and"), elemSep, clauseEnd
+
+	wc, err := openDoc(wc)
+	if err != nil {
+		return err
+	}
+
+	err = encodeExpression(wc, exp, prmMap)
+	if err != nil {
+		return err
+	}
+
+	wc, err = sep(wc)
+	if err != nil {
+		return err
+	}
+
+	for i, exp := range *exp.Links {
+		err = encodeExpression(wc, exp, prmMap)
+		if err != nil {
+			return err
+		}
+
+		if i < len(*exp.Links)-1 {
+			wc, err = sep(wc)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	_, err = closeDoc(wc)
+	return err
+}
+
 func writeNodeDocument(
 	wc writeContext,
 	node *Node,
@@ -234,9 +274,16 @@ func writeNodeDocument(
 	}
 
 	if node.L != nil {
-		err := encodeExpression(wc, node.L, prmMap)
-		if err != nil {
-			return err
+		if node.L.Links != nil {
+			err := encodeExpressionList(wc, node.L, prmMap)
+			if err != nil {
+				return err
+			}
+		} else {
+			err := encodeExpression(wc, node.L, prmMap)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -248,16 +295,23 @@ func writeNodeDocument(
 	}
 
 	if node.RN != nil {
-		err = writeNodeDocument(wc, node.RN, prmMap)
+		err := writeNodeDocument(wc, node.RN, prmMap)
 		if err != nil {
 			return err
 		}
 	}
 
 	if node.R != nil {
-		err := encodeExpression(wc, node.R, prmMap)
-		if err != nil {
-			return err
+		if node.R.Links != nil {
+			err := encodeExpressionList(wc, node.R, prmMap)
+			if err != nil {
+				return err
+			}
+		} else {
+			err := encodeExpression(wc, node.R, prmMap)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

@@ -36,7 +36,7 @@ func TestScanner(t *testing.T) {
 	}
 
 	l, c := s.Position()
-	if l != 1 || c != 46 {
+	if l != 1 || c != 66 {
 		t.Fatal("unexpected position", l, c)
 	}
 }

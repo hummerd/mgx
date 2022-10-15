@@ -113,6 +113,75 @@ func (n *Node) Replace(on, nn *Node) {
 	}
 }
 
+func newLinkMap() linkMap {
+	return make(map[string]*Expression)
+}
+
+type linkMap map[string]*Expression
+
+// linkNode finds expressions that refers same key.
+// All linked expressions gathered to firs expression, and removed from
+// original nodes.
+func (lm linkMap) linkNode(n *Node) {
+	if n.L != nil {
+		linked := lm.linkExpression(n.L)
+		if linked {
+			n.L = nil
+		}
+	}
+
+	if n.R != nil {
+		linked := lm.linkExpression(n.R)
+		if linked {
+			n.R = nil
+		}
+	}
+
+	if n.LN != nil {
+		llm := lm
+		if n.Op == "or" {
+			llm = newLinkMap()
+		}
+
+		llm.linkNode(n.LN)
+	}
+
+	if n.RN != nil {
+		llm := lm
+
+		if n.Op == "or" {
+			llm = newLinkMap()
+		}
+
+		llm.linkNode(n.RN)
+	}
+}
+
+func (lm linkMap) linkExpression(e *Expression) bool {
+	k := e.FindKey()
+
+	if k == nil {
+		return false
+	}
+
+	ee, ok := lm[string(k)]
+	if ok {
+		if ee.Links == nil {
+			ee.Links = &[]*Expression{}
+		}
+		*ee.Links = append(*ee.Links, e)
+		return true
+	}
+
+	lm[string(k)] = e
+	return false
+}
+
+func (n *Node) Link() {
+	lm := newLinkMap()
+	lm.linkNode(n)
+}
+
 func (n *Node) Reduce() (*Node, *Expression) {
 	if n.LN != nil {
 		n.LN, n.L = n.LN.Reduce()
@@ -122,18 +191,18 @@ func (n *Node) Reduce() (*Node, *Expression) {
 		n.RN, n.R = n.RN.Reduce()
 	}
 
-	le := n.LN == nil && n.L == nil
-	re := n.RN == nil && n.R == nil
+	lempty := n.LN == nil && n.L == nil
+	rempty := n.RN == nil && n.R == nil
 
-	if le && re {
+	if lempty && rempty {
 		return nil, nil
 	}
 
-	if !le && !re {
+	if !lempty && !rempty {
 		return n, nil
 	}
 
-	if !le {
+	if !lempty {
 		if n.LN != nil {
 			return n.LN, nil
 		}
@@ -141,7 +210,7 @@ func (n *Node) Reduce() (*Node, *Expression) {
 		return nil, n.L
 	}
 
-	if !re {
+	if !rempty {
 		if n.RN != nil {
 			return n.RN, nil
 		}
@@ -164,16 +233,30 @@ const (
 )
 
 type Expression struct {
-	Op   string
-	L    []byte
-	LT   ValueType
-	R    []byte
-	RT   ValueType
-	S, T pos
+	Op    string
+	L     []byte
+	LT    ValueType
+	R     []byte
+	RT    ValueType
+	S, T  pos
+	Links *[]*Expression
+}
+
+func (e *Expression) FindKey() []byte {
+	if e.LT == VTKey {
+		return e.L
+	}
+
+	if e.RT == VTKey {
+		return e.R
+	}
+
+	return nil
 }
 
 func (e *Expression) String() string {
-	return fmt.Sprintf("%X %s %X", e.L, e.Op, e.R)
+	return fmt.Sprintf("%X %s %X links: %v",
+		e.L, e.Op, e.R, e.Links)
 }
 
 func NewParser(s *Scanner) *Parser {
@@ -200,7 +283,12 @@ func (p *Parser) Parse() (*Node, error) {
 				r := root.LN
 				r.Parent = nil
 
-				r.Reduce()
+				r.Link()
+
+				rn, _ := r.Reduce()
+				if rn != nil {
+					r = rn
+				}
 				return r, nil
 			}
 
