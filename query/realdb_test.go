@@ -20,10 +20,13 @@ const (
 )
 
 type item struct {
-	Name  string `bson:"name"`
-	Num   int    `bson:"num"`
-	Child *item  `bson:"child,omitempty"`
+	Name  string    `bson:"name"`
+	Num   int       `bson:"num"`
+	Date  time.Time `bson:"date"`
+	Child *item     `bson:"child,omitempty"`
 }
+
+var testTime = time.Date(2022, 1, 1, 4, 5, 11, 0, time.UTC)
 
 var testItems = []item{
 	{
@@ -33,6 +36,7 @@ var testItems = []item{
 	{
 		Name: "item2",
 		Num:  2,
+		Date: testTime,
 	},
 	{
 		Name: "item3",
@@ -101,6 +105,38 @@ func TestDB_FindOne(t *testing.T) {
 	}
 }
 
+type realDBTestCase struct {
+	query         string
+	expectedItems []item
+}
+
+var realDBTestCases = []realDBTestCase{
+	{
+		query:         "num >= 2",
+		expectedItems: testItems[1:],
+	},
+	{
+		query:         `date = ISODate("2022-01-01T04:05:11.000Z")`,
+		expectedItems: testItems[1:2],
+	},
+	{
+		query:         "num >= 2 and num < 3",
+		expectedItems: testItems[1:2],
+	},
+	{
+		query:         "num >= 2 and name = \"item3\"",
+		expectedItems: testItems[2:],
+	},
+	{
+		query:         "(num = 1 or num = 3) and (name = \"item1\" or name = \"item3\"",
+		expectedItems: append([]item(nil), testItems[0], testItems[2]),
+	},
+	{
+		query:         "name $regex /item[1,2]/",
+		expectedItems: testItems[:2],
+	},
+}
+
 func TestDB_FindMany(t *testing.T) {
 	if coll == nil {
 		t.Skip("integration mode disabled")
@@ -109,24 +145,39 @@ func TestDB_FindMany(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	mq, err := query.Compile(`num >= 2`)
-	if err != nil {
-		t.Fatal(err)
-	}
+	for _, tc := range realDBTestCases {
+		t.Run(tc.query, func(t *testing.T) {
+			mq, err := query.Compile(tc.query)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	curr, err := coll.Find(ctx, mq)
-	if err != nil {
-		t.Fatal(err)
-	}
+			curr, err := coll.Find(ctx, mq)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	var items []item
-	err = curr.All(ctx, &items)
-	if err != nil {
-		t.Fatal(err)
-	}
+			var items []item
+			err = curr.All(ctx, &items)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	if !reflect.DeepEqual(items, testItems[1:]) {
-		t.Fatal("wrong items", items, testItems[1:])
+			fixTestDates(items)
+
+			t.Log(items)
+			if !reflect.DeepEqual(items, tc.expectedItems) {
+				t.Fatal("wrong items", items, tc.expectedItems)
+			}
+		})
+	}
+}
+
+func fixTestDates(items []item) {
+	for i := range items {
+		if testTime.Equal(items[i].Date) {
+			items[i].Date = testTime
+		}
 	}
 }
 

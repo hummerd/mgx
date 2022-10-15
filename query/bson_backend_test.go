@@ -137,6 +137,66 @@ func TestCompileToBSON(t *testing.T) {
 	}
 }
 
+func TestCompileToBSON_Link(t *testing.T) {
+	tests := []struct {
+		name    string
+		query   string
+		want    interface{}
+		wantErr bool
+	}{
+		{
+			name:  "simple link number",
+			query: "a > 90 and a < 100",
+			want: &bson.D{
+				{Key: "$and", Value: bson.A{
+					bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int64(90)}}}},
+					bson.D{{Key: "a", Value: bson.D{{Key: "$lt", Value: int64(100)}}}},
+				}},
+			},
+		},
+		{
+			name:  "link in brackets",
+			query: "(a > 90 and a < 100) or a = 25",
+			want: &bson.D{
+				{Key: "$or", Value: bson.A{
+					bson.D{{Key: "$and", Value: bson.A{
+						bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int64(90)}}}},
+						bson.D{{Key: "a", Value: bson.D{{Key: "$lt", Value: int64(100)}}}},
+					}}},
+					bson.D{{Key: "a", Value: int64(25)}},
+				}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cq, err := query.Compile(tt.query)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			mq, err := cq.MarshalBSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expectedQuery, err := bson.Marshal(tt.want)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			printMarshalled(t, mq)
+
+			if !reflect.DeepEqual(expectedQuery, mq) {
+				t.Errorf("CompileToBSON() = %s, want %s",
+					bson.Raw(mq),
+					bson.Raw(expectedQuery))
+			}
+		})
+	}
+}
+
 func printMarshalled(t *testing.T, marshalledQuery []byte) {
 	var q interface{}
 

@@ -236,8 +236,8 @@ func encodeExpressionList(
 		return err
 	}
 
-	for i, exp := range *exp.Links {
-		err = encodeExpression(wc, exp, prmMap)
+	for i, e := range *exp.Links {
+		err = encodeExpression(wc, e, prmMap)
 		if err != nil {
 			return err
 		}
