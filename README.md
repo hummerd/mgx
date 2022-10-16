@@ -63,6 +63,9 @@ func QueryData(ctx context.Context, date time.Time) {
 
 ### Examples:
 ``` GO
+// simple example.
+// comparison operators: =, !=, <, >, <=, >=.
+// logical operators: `and`, `or`.  
 var someQuery = query.MustCompile(`
        name = "some" AND
        age >= 30
@@ -73,6 +76,7 @@ func QueryStaticFilter(ctx context.Context) {
 }
 ```
 ``` GO
+// same field may be used multiple times (unlike in JSON).
 var someQuery = query.MustCompile(`
        age >= 30 AND
        age <= 40
@@ -83,6 +87,7 @@ func QueryStaticFilter(ctx context.Context) {
 }
 ```
 ``` GO
+// brackets with `and` and `or` operators.
 var someQuery = query.MustCompile(`
        (name = "Dima" OR name = "John") AND
        age > 25
@@ -93,6 +98,7 @@ func QueryStaticFilter(ctx context.Context) {
 }
 ```
 ``` GO
+// regexp and date type.
 var someQuery = query.MustCompile(`
        name $regex /a.*/i AND
        birth = ISODate('2022-01-01T00:00:00Z')
@@ -103,6 +109,7 @@ func QueryStaticFilter(ctx context.Context) {
 }
 ```
 ``` GO
+// $in operator.
 var someQuery = query.MustCompile(`
        age $in [18,27,33]
     `)
@@ -112,8 +119,9 @@ func QueryStaticFilter(ctx context.Context) {
 }
 ```
 ``` GO
+// nested fields and $exists clause.
 var someQuery = query.MustCompile(`
-       address $exists true
+       address.street $exists true
     `)
 
 func QueryStaticFilter(ctx context.Context) {

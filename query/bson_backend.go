@@ -400,6 +400,8 @@ func opKey(op string) []byte {
 		return []byte("$lte")
 	case "=":
 		return []byte("$eq")
+	case "!=", "<>":
+		return []byte("$ne")
 	}
 
 	return []byte(op)

@@ -116,6 +116,10 @@ var realDBTestCases = []realDBTestCase{
 		expectedItems: testItems[1:],
 	},
 	{
+		query:         "num != 1",
+		expectedItems: testItems[1:],
+	},
+	{
 		query:         `date = ISODate("2022-01-01T04:05:11.000Z")`,
 		expectedItems: testItems[1:2],
 	},
@@ -150,6 +154,14 @@ var realDBTestCases = []realDBTestCase{
 	{
 		query:         "child $exists false",
 		expectedItems: []item{testItems[0], testItems[1]},
+	},
+	{
+		query:         "child.name $exists false",
+		expectedItems: []item{testItems[0], testItems[1]},
+	},
+	{
+		query:         "child.name $exists true",
+		expectedItems: testItems[2:3],
 	},
 }
 
