@@ -16,7 +16,37 @@ const (
 	TParentheses
 	TRegex
 	TBool
+	TComma
 )
+
+var PrimitiveTypes = []Token{
+	TNumber,
+	TString,
+	TRegex,
+	TBool,
+}
+
+var PrimitiveTypesAndKey = append(PrimitiveTypes, TKey)
+
+func IsPrimitive(t Token) bool {
+	for _, v := range PrimitiveTypes {
+		if v == t {
+			return true
+		}
+	}
+
+	return false
+}
+
+func IsPrimitiveOrKey(t Token) bool {
+	for _, v := range PrimitiveTypesAndKey {
+		if v == t {
+			return true
+		}
+	}
+
+	return false
+}
 
 type pos struct {
 	l int
@@ -94,9 +124,17 @@ func (s *Scanner) Next() error {
 				s.tok = TRegex
 				return s.readRegex()
 			case isParentheses(c):
-				s.match = isParentheses
 				s.tok = TParentheses
-				return s.read()
+				s.lit = append(s.lit, c)
+				s.pos.c++
+				s.bufPos++
+				return nil
+			case isComma(c):
+				s.tok = TComma
+				s.lit = append(s.lit, c)
+				s.pos.c++
+				s.bufPos++
+				return nil
 			case c == '\n':
 				s.pos.l++
 				s.pos.c = 0
@@ -249,7 +287,8 @@ func isOp(s byte) bool {
 }
 
 func isNumber(s byte) bool {
-	return (s >= '0' && s <= '9')
+	return (s >= '0' && s <= '9') ||
+		s == '.'
 }
 
 func isString(s byte) bool {
@@ -261,10 +300,17 @@ func isRegex(s byte) bool {
 }
 
 func isParentheses(s byte) bool {
-	return s == '(' || s == ')'
+	return s == '(' ||
+		s == ')' ||
+		s == '[' ||
+		s == ']'
+}
+
+func isComma(s byte) bool {
+	return s == ','
 }
 
 func isBool(l []byte) bool {
-	return bytes.Equal(l, []byte("true")) ||
-		bytes.Equal(l, []byte("false"))
+	return bytes.EqualFold(l, []byte("true")) ||
+		bytes.EqualFold(l, []byte("false"))
 }

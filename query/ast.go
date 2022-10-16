@@ -8,12 +8,14 @@ type ValueType uint
 
 const (
 	VTKey ValueType = iota + 1
-	VTNumber
+	VTInteger
+	VTFloat
 	VTString
 	VTRegex
 	VTDate
 	VTObjectID
 	VTBool
+	VTArray
 )
 
 type Expression struct {

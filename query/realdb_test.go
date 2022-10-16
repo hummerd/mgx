@@ -129,7 +129,7 @@ var realDBTestCases = []realDBTestCase{
 	},
 	{
 		query:         "(num = 1 or num = 3) and (name = \"item1\" or name = \"item3\"",
-		expectedItems: append([]item(nil), testItems[0], testItems[2]),
+		expectedItems: []item{testItems[0], testItems[2]},
 	},
 	{
 		query:         "name $regex /item[1,2]/",
@@ -138,6 +138,18 @@ var realDBTestCases = []realDBTestCase{
 	{
 		query:         "name $regex /ITEM[1,2]/i",
 		expectedItems: testItems[:2],
+	},
+	{
+		query:         "num $in [1,3]",
+		expectedItems: []item{testItems[0], testItems[2]},
+	},
+	{
+		query:         "child $exists true",
+		expectedItems: testItems[2:3],
+	},
+	{
+		query:         "child $exists false",
+		expectedItems: []item{testItems[0], testItems[1]},
 	},
 }
 

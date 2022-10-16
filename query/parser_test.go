@@ -38,7 +38,7 @@ func TestParser_Parse(t *testing.T) {
 					L:  []byte("a"),
 					LT: query.VTKey,
 					R:  []byte{0, 0, 0, 0, 0, 0, 0, 90},
-					RT: query.VTNumber,
+					RT: query.VTInteger,
 				},
 			},
 		},
@@ -226,6 +226,20 @@ func TestParser_Parse(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:       "exists",
+			expression: "a $exists true",
+			want: &query.Node{
+				Op: "and",
+				L: &query.Expression{
+					Op: "$exists",
+					L:  []byte("a"),
+					LT: query.VTKey,
+					R:  []byte{1},
+					RT: query.VTBool,
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -267,14 +281,14 @@ func TestParser_ParseAndLink(t *testing.T) {
 					L:  []byte("a"),
 					LT: query.VTKey,
 					R:  []byte{0, 0, 0, 0, 0, 0, 0, 90},
-					RT: query.VTNumber,
+					RT: query.VTInteger,
 					Links: &[]*query.Expression{
 						{
 							Op: "<",
 							L:  []byte("a"),
 							LT: query.VTKey,
 							R:  []byte{0, 0, 0, 0, 0, 0, 0, 100},
-							RT: query.VTNumber,
+							RT: query.VTInteger,
 						},
 					},
 				},
@@ -290,14 +304,14 @@ func TestParser_ParseAndLink(t *testing.T) {
 					L:  []byte("a"),
 					LT: query.VTKey,
 					R:  []byte{0, 0, 0, 0, 0, 0, 0, 90},
-					RT: query.VTNumber,
+					RT: query.VTInteger,
 					Links: &[]*query.Expression{
 						{
 							Op: "<",
 							L:  []byte("a"),
 							LT: query.VTKey,
 							R:  []byte{0, 0, 0, 0, 0, 0, 0, 100},
-							RT: query.VTNumber,
+							RT: query.VTInteger,
 						},
 					},
 				},
@@ -306,7 +320,7 @@ func TestParser_ParseAndLink(t *testing.T) {
 					L:  []byte("a"),
 					LT: query.VTKey,
 					R:  []byte{0, 0, 0, 0, 0, 0, 0, 25},
-					RT: query.VTNumber,
+					RT: query.VTInteger,
 				},
 			},
 		},

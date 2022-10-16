@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"sync"
@@ -353,6 +354,9 @@ func encodeExpression(
 	return encodeElement(wc, k, v, vt, e.Op, prmMap)
 }
 
+// encodeElement writes document field with key k and value v.
+// It either writes simple form `k: v` (for = operation) or
+// complex form `k: { $op: v }` otherwise.
 func encodeElement(
 	wc writeContext,
 	k, v []byte,
@@ -368,20 +372,19 @@ func encodeElement(
 	if op == "=" {
 		return encodeValue(wc, v, vt, prmMap)
 	} else {
-		dw, err := vw.WriteDocument()
+		wc.dw, err = vw.WriteDocument()
 		if err != nil {
 			return err
 		}
 
 		k = opKey(op)
-		wc.dw = dw
 
 		err = encodeElement(wc, k, v, vt, "=", prmMap)
 		if err != nil {
 			return err
 		}
 
-		return dw.WriteDocumentEnd()
+		return wc.dw.WriteDocumentEnd()
 	}
 }
 
@@ -397,10 +400,6 @@ func opKey(op string) []byte {
 		return []byte("$lte")
 	case "=":
 		return []byte("$eq")
-	case "$regex":
-		return []byte("$regex")
-	case "$exists":
-		return []byte("$exists")
 	}
 
 	return []byte(op)
@@ -412,10 +411,6 @@ func encodeValue(
 	vt ValueType,
 	prmMap map[string]interface{},
 ) error {
-	if string(v) == "null" {
-		return wc.vw.WriteNull()
-	}
-
 	switch vt {
 	case VTString:
 		sv := string(v[1 : len(v)-1])
@@ -430,10 +425,17 @@ func encodeValue(
 		}
 
 		return wc.vw.WriteString(sv)
-	case VTNumber:
+	case VTInteger:
 		ui := binary.BigEndian.Uint64(v)
 		return wc.vw.WriteInt64(int64(ui))
+	case VTFloat:
+		ui := binary.BigEndian.Uint64(v)
+		f := math.Float64frombits(ui)
+		return wc.vw.WriteDouble(f)
 	case VTKey:
+		if string(v) == "null" {
+			return wc.vw.WriteNull()
+		}
 		return wc.vw.WriteString(string(v))
 	case VTDate:
 		dt := binary.BigEndian.Uint64(v)
@@ -458,9 +460,63 @@ func encodeValue(
 		}
 
 		return wc.vw.WriteRegex(p, o)
+	case VTArray:
+		return encodeArray(wc, v, prmMap)
 	}
 
 	return nil
+}
+
+func encodeArray(wc writeContext, arr []byte, prmMap map[string]interface{}) error {
+	var err error
+
+	wc.aw, err = wc.vw.WriteArray()
+	if err != nil {
+		return err
+	}
+
+	c := binary.BigEndian.Uint32(arr)
+	arr = arr[4:]
+
+	for i := uint32(0); i < c; i++ {
+		vt := ValueType(arr[0])
+		arr = arr[1:]
+
+		var tl uint32
+		tl, arr = tokenLength(vt, arr)
+
+		tv := arr[:tl]
+
+		wc.vw, err = wc.aw.WriteArrayElement()
+		if err != nil {
+			return err
+		}
+
+		err := encodeValue(wc, tv, vt, prmMap)
+		if err != nil {
+			return err
+		}
+
+		arr = arr[tl:]
+	}
+
+	return wc.aw.WriteArrayEnd()
+}
+
+func tokenLength(vt ValueType, buff []byte) (uint32, []byte) {
+	switch vt {
+	case VTString, VTRegex, VTKey:
+		l := binary.BigEndian.Uint32(buff)
+		return l, buff[4:]
+	case VTObjectID:
+		return 12, buff
+	case VTInteger, VTFloat, VTDate:
+		return 8, buff
+	case VTBool:
+		return 1, buff
+	}
+
+	return 0, buff
 }
 
 func lookupValue(v string, prmMap map[string]interface{}) (bool, interface{}) {

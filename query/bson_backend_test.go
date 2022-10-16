@@ -65,11 +65,11 @@ func TestCompileToBSON(t *testing.T) {
 		},
 		{
 			name:  "simple or",
-			query: `a.c >= "abc" or e = 90`,
+			query: `a.c >= "abc" or e = 0.89`,
 			want: &bson.D{
 				{Key: "$or", Value: bson.A{
 					bson.D{{Key: `a.c`, Value: bson.D{{Key: `$gte`, Value: `abc`}}}},
-					bson.D{{Key: `e`, Value: int64(90)}},
+					bson.D{{Key: `e`, Value: float64(0.89)}},
 				}},
 			},
 		},
@@ -171,6 +171,55 @@ func TestCompileToBSON_Link(t *testing.T) {
 					}}},
 					bson.D{{Key: "a", Value: int64(25)}},
 				}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cq, err := query.Compile(tt.query)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			mq, err := cq.MarshalBSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expectedQuery, err := bson.Marshal(tt.want)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			printMarshalled(t, mq)
+
+			if !reflect.DeepEqual(expectedQuery, mq) {
+				t.Errorf("CompileToBSON() = %s, want %s",
+					bson.Raw(mq),
+					bson.Raw(expectedQuery))
+			}
+		})
+	}
+}
+
+func TestCompileToBSON_Array(t *testing.T) {
+	tests := []struct {
+		name    string
+		query   string
+		want    interface{}
+		wantErr bool
+	}{
+		{
+			name:  "simple array",
+			query: `a $in [90, "abc", /abc/, ISODate('2022-01-01T00:00:00Z')]`,
+			want: &bson.D{
+				{Key: "a", Value: bson.D{{Key: "$in", Value: bson.A{
+					int64(90),
+					"abc",
+					primitive.Regex{Pattern: "abc", Options: ""},
+					time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+				}}}},
 			},
 		},
 	}
