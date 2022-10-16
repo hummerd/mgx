@@ -62,7 +62,6 @@ func QueryData(ctx context.Context, date time.Time) {
 ```
 
 ### Examples:
-
 ``` GO
 var someQuery = query.MustCompile(`
        name = "some" AND
@@ -93,7 +92,6 @@ func QueryStaticFilter(ctx context.Context) {
     cur, err := collection.Find(ctx, someQuery)
 }
 ```
-
 ``` GO
 var someQuery = query.MustCompile(`
        name $regex /a.*/i AND
@@ -104,4 +102,21 @@ func QueryStaticFilter(ctx context.Context) {
     cur, err := collection.Find(ctx, someQuery)
 }
 ```
+``` GO
+var someQuery = query.MustCompile(`
+       age $in [18,27,33]
+    `)
 
+func QueryStaticFilter(ctx context.Context) {
+    cur, err := collection.Find(ctx, someQuery)
+}
+```
+``` GO
+var someQuery = query.MustCompile(`
+       address $exists true
+    `)
+
+func QueryStaticFilter(ctx context.Context) {
+    cur, err := collection.Find(ctx, someQuery)
+}
+```
