@@ -8,12 +8,13 @@ import (
 )
 
 func TestScanner(t *testing.T) {
-	src := `a > 75 AND (d OR c)   AND b < 4 AND "abc" = 90 AND g $regex /abc/ig`
+	src := `a > 75 AND (d OR c)   AND b < 4 AND
+		"abc" = 90 AND g $regex /abc/ig and a = 'some'`
 
 	exp := []string{
 		"a", ">", "75", "AND", "(", "d", "OR", "c", ")",
 		"AND", "b", "<", "4", "AND", "\"abc\"", "=", "90",
-		"AND", "g", "$regex", "/abc/ig",
+		"AND", "g", "$regex", "/abc/ig", "and", "a", "=", `'some'`,
 	}
 
 	s := query.NewScanner(strings.NewReader(src))
@@ -36,7 +37,7 @@ func TestScanner(t *testing.T) {
 	}
 
 	l, c := s.Position()
-	if l != 1 || c != 66 {
+	if l != 2 || c != 46 {
 		t.Fatal("unexpected position", l, c)
 	}
 }

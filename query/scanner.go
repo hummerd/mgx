@@ -78,7 +78,7 @@ func (s *Scanner) Next() error {
 			case isString(c):
 				s.match = isString
 				s.tok = TString
-				return s.readString('"')
+				return s.readString(c)
 			case isRegex(c):
 				s.match = isRegex
 				s.tok = TRegex
@@ -243,7 +243,7 @@ func isNumber(s byte) bool {
 }
 
 func isString(s byte) bool {
-	return s == '"'
+	return s == '"' || s == '\''
 }
 
 func isRegex(s byte) bool {
