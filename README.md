@@ -47,7 +47,7 @@ go get github.com/hummerd/mgx@latest
 
 The query package allows you to write mongo filters in human friendly form.
 
-The query package is very-very experimental - use it on you own risk!
+The query package is very-very experimental - use it on you own risk (or  better do not)!
 
 ``` GO
 var someQuery = query.MustPrepare(`start >= "$startDate"`)
@@ -61,6 +61,8 @@ func QueryData(ctx context.Context, date time.Time) {
 }
 ```
 
+### Examples:
+
 ``` GO
 var someQuery = query.MustCompile(`
        name = "some" AND
@@ -71,3 +73,35 @@ func QueryStaticFilter(ctx context.Context) {
     cur, err := collection.Find(ctx, someQuery)
 }
 ```
+``` GO
+var someQuery = query.MustCompile(`
+       age >= 30 AND
+       age <= 40
+    `)
+
+func QueryStaticFilter(ctx context.Context) {
+    cur, err := collection.Find(ctx, someQuery)
+}
+```
+``` GO
+var someQuery = query.MustCompile(`
+       (name = "Dima" OR name = "John") AND
+       age > 25
+    `)
+
+func QueryStaticFilter(ctx context.Context) {
+    cur, err := collection.Find(ctx, someQuery)
+}
+```
+
+``` GO
+var someQuery = query.MustCompile(`
+       name $regex /a.*/i AND
+       birth = ISODate('2022-01-01T00:00:00Z')
+    `)
+
+func QueryStaticFilter(ctx context.Context) {
+    cur, err := collection.Find(ctx, someQuery)
+}
+```
+

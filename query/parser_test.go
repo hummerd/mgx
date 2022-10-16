@@ -16,6 +16,9 @@ func TestParser_Parse(t *testing.T) {
 	testTime := time.Date(2022, 1, 1, 0, 0, 0, 200*1000000, time.UTC)
 	btestTime := binary.BigEndian.AppendUint64(nil, uint64(primitive.NewDateTimeFromTime(testTime)))
 
+	testTimeNoMs := time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
+	btestTimeNoMs := binary.BigEndian.AppendUint64(nil, uint64(primitive.NewDateTimeFromTime(testTimeNoMs)))
+
 	testOid, _ := primitive.ObjectIDFromHex("507f191e810c19729de860ea")
 	btestOid := testOid[:]
 
@@ -54,6 +57,20 @@ func TestParser_Parse(t *testing.T) {
 			},
 		},
 		{
+			name:       "simple string (single quote)",
+			expression: "a > '90'",
+			want: &query.Node{
+				Op: "and",
+				L: &query.Expression{
+					Op: ">",
+					L:  []byte("a"),
+					LT: query.VTKey,
+					R:  []byte("'90'"),
+					RT: query.VTString,
+				},
+			},
+		},
+		{
 			name:       "simple date time",
 			expression: `a > ISODate("2022-01-01T00:00:00.200Z")`,
 			want: &query.Node{
@@ -63,6 +80,20 @@ func TestParser_Parse(t *testing.T) {
 					L:  []byte("a"),
 					LT: query.VTKey,
 					R:  btestTime,
+					RT: query.VTDate,
+				},
+			},
+		},
+		{
+			name:       "simple date time (no ms)",
+			expression: `a > ISODate("2022-01-01T00:00:00Z")`,
+			want: &query.Node{
+				Op: "and",
+				L: &query.Expression{
+					Op: ">",
+					L:  []byte("a"),
+					LT: query.VTKey,
+					R:  btestTimeNoMs,
 					RT: query.VTDate,
 				},
 			},

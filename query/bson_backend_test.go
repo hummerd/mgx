@@ -49,8 +49,15 @@ func TestCompileToBSON(t *testing.T) {
 			},
 		},
 		{
+			name:  "simple date",
+			query: `a.c > ISODate('2022-01-01T00:00:00Z')`,
+			want: &bson.D{
+				{Key: `a.c`, Value: bson.D{{Key: `$gt`, Value: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)}}},
+			},
+		},
+		{
 			name:  "simple and",
-			query: `a.c < "abc" and e = 90`,
+			query: `a.c < 'abc' and e = 90`,
 			want: &bson.D{
 				{Key: `a.c`, Value: bson.D{{Key: `$lt`, Value: `abc`}}},
 				{Key: `e`, Value: int64(90)},
@@ -93,7 +100,6 @@ func TestCompileToBSON(t *testing.T) {
 				}},
 			},
 		},
-
 		{
 			name:  "and or with brackets",
 			query: `a.c > "abc" and (f = "some" or e = 90)`,

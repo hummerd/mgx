@@ -135,6 +135,10 @@ var realDBTestCases = []realDBTestCase{
 		query:         "name $regex /item[1,2]/",
 		expectedItems: testItems[:2],
 	},
+	{
+		query:         "name $regex /ITEM[1,2]/i",
+		expectedItems: testItems[:2],
+	},
 }
 
 func TestDB_FindMany(t *testing.T) {
