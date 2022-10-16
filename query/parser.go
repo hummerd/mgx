@@ -203,6 +203,8 @@ func (p *Parser) tokenValue(t Token, l []byte) ([]byte, ValueType) {
 	case TNumber:
 		n, _ := strconv.Atoi(string(l))
 		return binary.BigEndian.AppendUint64(nil, uint64(n)), VTNumber
+	case TBool:
+		return parseBool(l)
 	case TKey:
 		switch {
 		case bytes.Equal(l, keyFuncObjectID):
@@ -276,4 +278,12 @@ func (p *Parser) parseFuncDate() ([]byte, ValueType) {
 
 	dt, _ := time.Parse(time.RFC3339Nano, dts)
 	return binary.BigEndian.AppendUint64(nil, uint64(dt.UnixMilli())), VTDate
+}
+
+func parseBool(l []byte) ([]byte, ValueType) {
+	if l[0] == 't' {
+		return []byte{1}, VTBool
+	}
+
+	return []byte{0}, VTBool
 }

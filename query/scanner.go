@@ -15,6 +15,7 @@ const (
 	TOp
 	TParentheses
 	TRegex
+	TBool
 )
 
 type pos struct {
@@ -66,7 +67,16 @@ func (s *Scanner) Next() error {
 			case isKey(c):
 				s.match = isKey
 				s.tok = TKey
-				return s.read()
+				err := s.read()
+				if err != nil {
+					return err
+				}
+
+				if isBool(s.lit) {
+					s.tok = TBool
+				}
+
+				return nil
 			case isOp(c):
 				s.match = isOp
 				s.tok = TOp
@@ -252,4 +262,9 @@ func isRegex(s byte) bool {
 
 func isParentheses(s byte) bool {
 	return s == '(' || s == ')'
+}
+
+func isBool(l []byte) bool {
+	return bytes.Equal(l, []byte("true")) ||
+		bytes.Equal(l, []byte("false"))
 }

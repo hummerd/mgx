@@ -13,6 +13,7 @@ const (
 	VTRegex
 	VTDate
 	VTObjectID
+	VTBool
 )
 
 type Expression struct {

@@ -399,6 +399,8 @@ func opKey(op string) []byte {
 		return []byte("$eq")
 	case "$regex":
 		return []byte("$regex")
+	case "$exists":
+		return []byte("$exists")
 	}
 
 	return []byte(op)
@@ -436,6 +438,8 @@ func encodeValue(
 	case VTDate:
 		dt := binary.BigEndian.Uint64(v)
 		return wc.vw.WriteDateTime(int64(dt))
+	case VTBool:
+		return wc.vw.WriteBoolean(v[0] == 1)
 	case VTObjectID:
 		if len(v) != 12 {
 			return fmt.Errorf("invalid object id")
