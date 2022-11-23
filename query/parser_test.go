@@ -33,13 +33,7 @@ func TestParser_Parse(t *testing.T) {
 			expression: "a > 90",
 			want: &query.Node{
 				Op: "and",
-				L: &query.Expression{
-					Op: ">",
-					L:  []byte("a"),
-					LT: query.VTKey,
-					R:  []byte{0, 0, 0, 0, 0, 0, 0, 90},
-					RT: query.VTInteger,
-				},
+				L:  keyExp(">", "a", []byte{0, 0, 0, 0, 0, 0, 0, 90}, query.VTInteger),
 			},
 		},
 		{
@@ -47,13 +41,7 @@ func TestParser_Parse(t *testing.T) {
 			expression: "a > \"90\"",
 			want: &query.Node{
 				Op: "and",
-				L: &query.Expression{
-					Op: ">",
-					L:  []byte("a"),
-					LT: query.VTKey,
-					R:  []byte("\"90\""),
-					RT: query.VTString,
-				},
+				L:  keyExpString(">", "a", `"90"`),
 			},
 		},
 		{
@@ -61,13 +49,7 @@ func TestParser_Parse(t *testing.T) {
 			expression: "a > '90'",
 			want: &query.Node{
 				Op: "and",
-				L: &query.Expression{
-					Op: ">",
-					L:  []byte("a"),
-					LT: query.VTKey,
-					R:  []byte("'90'"),
-					RT: query.VTString,
-				},
+				L:  keyExpString(">", "a", `'90'`),
 			},
 		},
 		{
@@ -75,13 +57,7 @@ func TestParser_Parse(t *testing.T) {
 			expression: `a > ISODate("2022-01-01T00:00:00.200Z")`,
 			want: &query.Node{
 				Op: "and",
-				L: &query.Expression{
-					Op: ">",
-					L:  []byte("a"),
-					LT: query.VTKey,
-					R:  btestTime,
-					RT: query.VTDate,
-				},
+				L:  keyExp(">", "a", btestTime, query.VTDate),
 			},
 		},
 		{
@@ -89,13 +65,7 @@ func TestParser_Parse(t *testing.T) {
 			expression: `a > ISODate("2022-01-01T00:00:00Z")`,
 			want: &query.Node{
 				Op: "and",
-				L: &query.Expression{
-					Op: ">",
-					L:  []byte("a"),
-					LT: query.VTKey,
-					R:  btestTimeNoMs,
-					RT: query.VTDate,
-				},
+				L:  keyExp(">", "a", btestTimeNoMs, query.VTDate),
 			},
 		},
 		{
@@ -103,13 +73,7 @@ func TestParser_Parse(t *testing.T) {
 			expression: `a = ObjectId("507f191e810c19729de860ea")`,
 			want: &query.Node{
 				Op: "and",
-				L: &query.Expression{
-					Op: "=",
-					L:  []byte("a"),
-					LT: query.VTKey,
-					R:  btestOid,
-					RT: query.VTObjectID,
-				},
+				L:  keyExp("=", "a", btestOid, query.VTObjectID),
 			},
 		},
 		{
@@ -117,13 +81,7 @@ func TestParser_Parse(t *testing.T) {
 			expression: "a > \"90\" and \"don\" = d",
 			want: &query.Node{
 				Op: "and",
-				L: &query.Expression{
-					Op: ">",
-					L:  []byte("a"),
-					LT: query.VTKey,
-					R:  []byte("\"90\""),
-					RT: query.VTString,
-				},
+				L:  keyExpString(">", "a", `"90"`),
 				R: &query.Expression{
 					Op: "=",
 					L:  []byte("\"don\""),
@@ -140,13 +98,7 @@ func TestParser_Parse(t *testing.T) {
 				Op: "or",
 				LN: &query.Node{
 					Op: "and",
-					L: &query.Expression{
-						Op: ">",
-						L:  []byte("a"),
-						LT: query.VTKey,
-						R:  []byte("\"90\""),
-						RT: query.VTString,
-					},
+					L:  keyExpString(">", "a", `"90"`),
 					R: &query.Expression{
 						Op: "=",
 						L:  []byte("\"don\""),
@@ -155,13 +107,7 @@ func TestParser_Parse(t *testing.T) {
 						RT: query.VTKey,
 					},
 				},
-				R: &query.Expression{
-					Op: "=",
-					L:  []byte("c"),
-					LT: query.VTKey,
-					R:  []byte("e"),
-					RT: query.VTKey,
-				},
+				R: keyExp("=", "c", []byte("e"), query.VTKey),
 			},
 		},
 		{
@@ -169,13 +115,7 @@ func TestParser_Parse(t *testing.T) {
 			expression: `a > "90" and ("don" = d or c = e)`,
 			want: &query.Node{
 				Op: "and",
-				L: &query.Expression{
-					Op: ">",
-					L:  []byte("a"),
-					LT: query.VTKey,
-					R:  []byte("\"90\""),
-					RT: query.VTString,
-				},
+				L:  keyExpString(">", "a", `"90"`),
 				RN: &query.Node{
 					Op: "or",
 					L: &query.Expression{
@@ -185,13 +125,7 @@ func TestParser_Parse(t *testing.T) {
 						R:  []byte("d"),
 						RT: query.VTKey,
 					},
-					R: &query.Expression{
-						Op: "=",
-						L:  []byte("c"),
-						LT: query.VTKey,
-						R:  []byte("e"),
-						RT: query.VTKey,
-					},
+					R: keyExp("=", "c", []byte("e"), query.VTKey),
 				},
 			},
 		},
@@ -202,13 +136,7 @@ func TestParser_Parse(t *testing.T) {
 				Op: "or",
 				LN: &query.Node{
 					Op: "and",
-					L: &query.Expression{
-						Op: ">",
-						L:  []byte("a"),
-						LT: query.VTKey,
-						R:  []byte("\"90\""),
-						RT: query.VTString,
-					},
+					L:  keyExpString(">", "a", `"90"`),
 					R: &query.Expression{
 						Op: "=",
 						L:  []byte("\"don\""),
@@ -217,13 +145,7 @@ func TestParser_Parse(t *testing.T) {
 						RT: query.VTKey,
 					},
 				},
-				R: &query.Expression{
-					Op: "=",
-					L:  []byte("c"),
-					LT: query.VTKey,
-					R:  []byte("e"),
-					RT: query.VTKey,
-				},
+				R: keyExp("=", "c", []byte("e"), query.VTKey),
 			},
 		},
 		{
@@ -252,13 +174,7 @@ func TestParser_Parse(t *testing.T) {
 			expression: "a $exists true",
 			want: &query.Node{
 				Op: "and",
-				L: &query.Expression{
-					Op: "$exists",
-					L:  []byte("a"),
-					LT: query.VTKey,
-					R:  []byte{1},
-					RT: query.VTBool,
-				},
+				L:  keyExp("$exists", "a", []byte{1}, query.VTBool),
 			},
 		},
 	}
@@ -282,6 +198,16 @@ func TestParser_Parse(t *testing.T) {
 				t.Error("Parser.Parse() unexpected result", err)
 			}
 		})
+	}
+}
+
+func keyExp(op, k string, v []byte, vt query.ValueType) *query.Expression {
+	return &query.Expression{
+		Op: op,
+		L:  []byte(k),
+		LT: query.VTKey,
+		R:  v,
+		RT: vt,
 	}
 }
 
