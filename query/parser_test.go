@@ -227,6 +227,27 @@ func TestParser_Parse(t *testing.T) {
 			},
 		},
 		{
+			name:       "complex and or with brackets",
+			expression: `a=1 or (b=1 and (c=1 or d=1) or e=1)`,
+			want: &query.Node{
+				Op: "or",
+				L:  keyExpByte("=", "a", 1),
+				RN: &query.Node{
+					Op: "or",
+					LN: &query.Node{
+						Op: "and",
+						L:  keyExpByte("=", "b", 1),
+						RN: &query.Node{
+							Op: "or",
+							L:  keyExpByte("=", "c", 1),
+							R:  keyExpByte("=", "d", 1),
+						},
+					},
+					R: keyExpByte("=", "e", 1),
+				},
+			},
+		},
+		{
 			name:       "exists",
 			expression: "a $exists true",
 			want: &query.Node{
@@ -261,6 +282,26 @@ func TestParser_Parse(t *testing.T) {
 				t.Error("Parser.Parse() unexpected result", err)
 			}
 		})
+	}
+}
+
+func keyExpString(op, k, v string) *query.Expression {
+	return &query.Expression{
+		Op: op,
+		L:  []byte(k),
+		LT: query.VTKey,
+		R:  []byte(v),
+		RT: query.VTString,
+	}
+}
+
+func keyExpByte(op, k string, v byte) *query.Expression {
+	return &query.Expression{
+		Op: op,
+		L:  []byte(k),
+		LT: query.VTKey,
+		R:  []byte{0, 0, 0, 0, 0, 0, 0, v},
+		RT: query.VTInteger,
 	}
 }
 

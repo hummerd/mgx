@@ -41,8 +41,16 @@ func (e *Expression) FindKey() []byte {
 }
 
 func (e *Expression) String() string {
-	return fmt.Sprintf("%X %s %X links: %v",
-		e.L, e.Op, e.R, e.Links)
+	ls := ""
+	if e.LT == VTKey ||
+		e.LT == VTString {
+		ls = string(e.L)
+	} else {
+		ls = fmt.Sprintf("%X", e.L)
+	}
+
+	return fmt.Sprintf("%s %s %X links: %v",
+		ls, e.Op, e.R, e.Links)
 }
 
 type NodeContext struct {
@@ -104,12 +112,17 @@ func (n *Node) Root() *Node {
 	}
 }
 
-func (n *Node) LocalRoot() *Node {
+// LocalRoot finds local root (parent node for parentheses)
+// and flag if we found local root from left side.
+func (n *Node) LocalRoot() (*Node, bool) {
+	var pn *Node
+
 	for {
 		if n.LRoot {
-			return n
+			return n, n.LN == pn
 		}
 
+		pn = n
 		n = n.Parent
 	}
 }
@@ -122,12 +135,19 @@ func (n *Node) SetNextExpression(ne *Expression) {
 	}
 }
 
+func (n *Node) ReplaceNode(nn *Node) {
+	n.Parent.Replace(n, nn)
+	nn.Parent = n.Parent
+}
+
 func (n *Node) SetNextNode(nn *Node) {
 	if n.L == nil && n.LN == nil {
 		n.LN = nn
 	} else {
 		n.RN = nn
 	}
+
+	nn.Parent = n
 }
 
 func (n *Node) Replace(on, nn *Node) {

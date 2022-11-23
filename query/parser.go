@@ -33,8 +33,8 @@ type Parser struct {
 
 func (p *Parser) Parse() (*Node, error) {
 	root := &Node{LRoot: true}
-	n := &Node{Op: "and", Parent: root}
-	root.LN = n
+	n := &Node{Op: "and"}
+	root.SetNextNode(n)
 
 	for {
 		var err error
@@ -70,20 +70,25 @@ func (p *Parser) parse(n *Node) (*Node, error) {
 				return nil, p.unexpectedSymbolError(l)
 			}
 
-			newN := &Node{Op: "and", Parent: n}
+			newN := &Node{Op: "and"}
 			n.SetNextNode(newN)
 			return newN, nil
+
 		case bytes.EqualFold(l, keyOr):
 			if n.L == nil && n.LN == nil {
 				return nil, p.unexpectedSymbolError(l)
 			}
 
-			r := n.LocalRoot()
+			r, left := n.LocalRoot()
 
-			newN := &Node{Op: "or", Parent: r}
-			newN.LN = r.LN
-			newN.LN.Parent = newN
-			r.LN = newN
+			rp := r.RN
+			if left {
+				rp = r.LN
+			}
+
+			newN := &Node{Op: "or"}
+			rp.ReplaceNode(newN)
+			newN.SetNextNode(rp)
 
 			return newN, nil
 		}
@@ -102,11 +107,16 @@ func (p *Parser) parse(n *Node) (*Node, error) {
 				return nil, p.unexpectedSymbolError(l)
 			}
 
-			n = n.Parent
-			return n, nil
+			n, _ = n.Parent.LocalRoot()
+
+			newN := &Node{Op: "and"}
+			n.ReplaceNode(newN)
+			newN.SetNextNode(n)
+
+			return newN, nil
 		}
 
-		newN := &Node{Op: "and", Parent: n}
+		newN := &Node{Op: "and"}
 		n.SetNextNode(newN)
 		n.LRoot = true
 		return newN, nil
