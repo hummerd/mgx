@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsoncodec"
 	"go.mongodb.org/mongo-driver/bson/bsonrw"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -33,6 +34,12 @@ type MarshalledQuery struct {
 // MarshalBSON just returns marshalled bson document.
 func (q MarshalledQuery) MarshalBSON() ([]byte, error) {
 	return q.bsonData.Bytes(), nil
+}
+
+// MarshalBSONValue returns marshalled bson document as bson value.
+// We use bson array here because it is the only type that can be used as pipeline.
+func (q MarshalledQuery) MarshalBSONValue() (bsontype.Type, []byte, error) {
+	return bsontype.Array, q.bsonData.Bytes(), nil
 }
 
 // Close returns marshal buffer to internal pool and returns nil.
