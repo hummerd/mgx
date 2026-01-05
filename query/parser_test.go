@@ -9,17 +9,17 @@ import (
 	"time"
 
 	"github.com/hummerd/mgx/query"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func TestParser_Parse(t *testing.T) {
 	testTime := time.Date(2022, 1, 1, 0, 0, 0, 200*1000000, time.UTC)
-	btestTime := binary.BigEndian.AppendUint64(nil, uint64(primitive.NewDateTimeFromTime(testTime)))
+	btestTime := binary.BigEndian.AppendUint64(nil, uint64(bson.NewDateTimeFromTime(testTime)))
 
 	testTimeNoMs := time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
-	btestTimeNoMs := binary.BigEndian.AppendUint64(nil, uint64(primitive.NewDateTimeFromTime(testTimeNoMs)))
+	btestTimeNoMs := binary.BigEndian.AppendUint64(nil, uint64(bson.NewDateTimeFromTime(testTimeNoMs)))
 
-	testOid, _ := primitive.ObjectIDFromHex("507f191e810c19729de860ea")
+	testOid, _ := bson.ObjectIDFromHex("507f191e810c19729de860ea")
 	btestOid := testOid[:]
 
 	tests := []struct {

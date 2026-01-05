@@ -1,5 +1,6 @@
 # mgx
-Extension for Golang MongoDB driver. 
+
+Extension for Golang MongoDB driver.
 
 It allows you to work with quries and pipelines in form of JSON, because it is easier to read and you can copy and paste it between Mongo Atlas/Compass/MongoSH.
 
@@ -18,6 +19,7 @@ filter := mgx.MustParseQuery(`{
     "$2", date,
 )
 ```
+
 or
 
 ``` GO
@@ -32,18 +34,21 @@ var someQuery = mgx.MustParseQuery(`{
 
 func QueryData(id string, date time.Time) {
     filter, err := mgx.MarshalQuery(someQuery, "$1", id, "$2", date)
+    defer filter.Close()
     ...
 }
 ```
 
-## Install 
+## Install
 
-```
+``` bash
 go get github.com/hummerd/mgx@latest
 ```
 
+> [!NOTE]
+> Since v0.3.0 mgx switched to mongo driver v2.
 
-## Mongo Text Query Language 
+## Mongo Text Query Language
 
 The query package allows you to write mongo filters in human friendly form.
 
@@ -61,7 +66,8 @@ func QueryData(ctx context.Context, date time.Time) {
 }
 ```
 
-### Examples:
+### Examples
+
 ``` GO
 // simple example.
 // comparison operators: =, !=, <, >, <=, >=.
@@ -75,6 +81,7 @@ func QueryStaticFilter(ctx context.Context) {
     cur, err := collection.Find(ctx, someQuery)
 }
 ```
+
 ``` GO
 // same field may be used multiple times (unlike in JSON).
 var someQuery = query.MustCompile(`
@@ -86,6 +93,7 @@ func QueryStaticFilter(ctx context.Context) {
     cur, err := collection.Find(ctx, someQuery)
 }
 ```
+
 ``` GO
 // brackets with `and` and `or` operators.
 var someQuery = query.MustCompile(`
@@ -97,6 +105,7 @@ func QueryStaticFilter(ctx context.Context) {
     cur, err := collection.Find(ctx, someQuery)
 }
 ```
+
 ``` GO
 // regexp and date type.
 var someQuery = query.MustCompile(`
@@ -108,6 +117,7 @@ func QueryStaticFilter(ctx context.Context) {
     cur, err := collection.Find(ctx, someQuery)
 }
 ```
+
 ``` GO
 // $in operator.
 var someQuery = query.MustCompile(`
@@ -118,6 +128,7 @@ func QueryStaticFilter(ctx context.Context) {
     cur, err := collection.Find(ctx, someQuery)
 }
 ```
+
 ``` GO
 // nested fields and $exists clause.
 var someQuery = query.MustCompile(`

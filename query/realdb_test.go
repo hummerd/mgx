@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/hummerd/mgx/query"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 const (
@@ -213,18 +213,14 @@ func mongoClient(uri string) *mongo.Client {
 	opt := options.Client().
 		ApplyURI(uri).
 		SetAppName(mgxApp)
-	client, err := mongo.NewClient(opt)
+
+	client, err := mongo.Connect(opt)
 	if err != nil {
 		panic(err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-
-	err = client.Connect(ctx)
-	if err != nil {
-		panic(err)
-	}
 
 	err = client.Ping(ctx, nil)
 	if err != nil {

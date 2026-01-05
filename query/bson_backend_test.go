@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/hummerd/mgx/query"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func TestCompileToBSON(t *testing.T) {
@@ -38,14 +37,14 @@ func TestCompileToBSON(t *testing.T) {
 			name:  "simple regex",
 			query: `a.c $regex /abc/`,
 			want: &bson.D{
-				{Key: `a.c`, Value: bson.D{{Key: `$regex`, Value: primitive.Regex{Pattern: `abc`}}}},
+				{Key: `a.c`, Value: bson.D{{Key: `$regex`, Value: bson.Regex{Pattern: `abc`}}}},
 			},
 		},
 		{
 			name:  "simple regex with options",
 			query: `a.c $regex /abc/ig`,
 			want: &bson.D{
-				{Key: `a.c`, Value: bson.D{{Key: `$regex`, Value: primitive.Regex{Pattern: `abc`, Options: `ig`}}}},
+				{Key: `a.c`, Value: bson.D{{Key: `$regex`, Value: bson.Regex{Pattern: `abc`, Options: `ig`}}}},
 			},
 		},
 		{
@@ -217,7 +216,7 @@ func TestCompileToBSON_Array(t *testing.T) {
 				{Key: "a", Value: bson.D{{Key: "$in", Value: bson.A{
 					int64(90),
 					"abc",
-					primitive.Regex{Pattern: "abc", Options: ""},
+					bson.Regex{Pattern: "abc", Options: ""},
 					time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
 				}}}},
 			},

@@ -7,19 +7,14 @@ import (
 	"strings"
 	"sync"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/bsoncodec"
-	"go.mongodb.org/mongo-driver/bson/bsonrw"
-	"go.mongodb.org/mongo-driver/bson/bsontype"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-var (
-	bvwPool  = bsonrw.NewBSONValueWriterPool()
-	buffPool = sync.Pool{New: func() interface{} {
-		return &bytes.Buffer{}
-	}}
-)
+var buffPool = sync.Pool{New: func() interface{} {
+	return &bytes.Buffer{}
+}}
+
+var defaultRegistry = bson.NewRegistry()
 
 func NewMarshalledQuery(bsonData *bytes.Buffer) MarshalledQuery {
 	return MarshalledQuery{
@@ -38,15 +33,14 @@ func (q MarshalledQuery) MarshalBSON() ([]byte, error) {
 
 // MarshalBSONValue returns marshalled bson document as bson value.
 // We use bson array here because it is the only type that can be used as pipeline.
-func (q MarshalledQuery) MarshalBSONValue() (bsontype.Type, []byte, error) {
-	return bsontype.Array, q.bsonData.Bytes(), nil
+func (q MarshalledQuery) MarshalBSONValue() (bson.Type, []byte, error) {
+	return bson.TypeArray, q.bsonData.Bytes(), nil
 }
 
 // Close returns marshal buffer to internal pool and returns nil.
-func (q MarshalledQuery) Close() error {
+func (q MarshalledQuery) Close() {
 	q.bsonData.Reset()
 	buffPool.Put(q.bsonData)
-	return nil
 }
 
 // MarshalQuery creates serialized representation of query or pipeline.
@@ -58,13 +52,11 @@ func MarshalQuery(query interface{}, params ...interface{}) (MarshalledQuery, er
 
 	enc := NewQueryEncoder(prmMap)
 
-	ec := bsoncodec.EncodeContext{Registry: bson.DefaultRegistry}
+	ec := bson.EncodeContext{Registry: defaultRegistry}
 
-	buff := buffPool.New().(*bytes.Buffer)
-	buff.Reset()
+	buff := buffPool.Get().(*bytes.Buffer)
 
-	vw := bvwPool.Get(buff)
-	defer bvwPool.Put(vw)
+	vw := bson.NewDocumentWriter(buff)
 
 	val := reflect.ValueOf(query)
 
@@ -85,17 +77,17 @@ func NewQueryEncoder(params map[string]interface{}) QueryEncoder {
 
 var (
 	tString = reflect.TypeOf(string(""))
-	tD      = reflect.TypeOf(primitive.D{})
-	tA      = reflect.TypeOf(primitive.A{})
+	tD      = reflect.TypeOf(bson.D{})
+	tA      = reflect.TypeOf(bson.A{})
 )
 
 type QueryEncoder struct {
 	prmMap map[string]interface{}
 }
 
-func (enc QueryEncoder) EncodePipeline(ec bsoncodec.EncodeContext, vw bsonrw.ValueWriter, val reflect.Value) error {
+func (enc QueryEncoder) EncodePipeline(ec bson.EncodeContext, vw bson.ValueWriter, val reflect.Value) error {
 	if !val.IsValid() || val.Kind() != reflect.Slice {
-		return bsoncodec.ValueEncoderError{Name: "EncodeValue", Kinds: []reflect.Kind{reflect.Slice}, Received: val}
+		return bson.ValueEncoderError{Name: "EncodeValue", Kinds: []reflect.Kind{reflect.Slice}, Received: val}
 	}
 
 	dw, err := vw.WriteDocument()
@@ -124,9 +116,9 @@ func (enc QueryEncoder) EncodePipeline(ec bsoncodec.EncodeContext, vw bsonrw.Val
 	return dw.WriteDocumentEnd()
 }
 
-func (enc QueryEncoder) EncodeValue(ec bsoncodec.EncodeContext, vw bsonrw.ValueWriter, val reflect.Value) error {
+func (enc QueryEncoder) EncodeValue(ec bson.EncodeContext, vw bson.ValueWriter, val reflect.Value) error {
 	if !val.IsValid() || val.Kind() != reflect.Slice {
-		return bsoncodec.ValueEncoderError{Name: "EncodeValue", Kinds: []reflect.Kind{reflect.Slice}, Received: val}
+		return bson.ValueEncoderError{Name: "EncodeValue", Kinds: []reflect.Kind{reflect.Slice}, Received: val}
 	}
 
 	if val.IsNil() {
@@ -142,8 +134,8 @@ func (enc QueryEncoder) EncodeValue(ec bsoncodec.EncodeContext, vw bsonrw.ValueW
 	return enc.writeArray(ec, vw, elemType, val)
 }
 
-func (enc QueryEncoder) writeDDocument(ec bsoncodec.EncodeContext, vw bsonrw.ValueWriter, val reflect.Value) error {
-	d := val.Convert(tD).Interface().(primitive.D)
+func (enc QueryEncoder) writeDDocument(ec bson.EncodeContext, vw bson.ValueWriter, val reflect.Value) error {
+	d := val.Convert(tD).Interface().(bson.D)
 
 	dw, err := vw.WriteDocument()
 	if err != nil {
@@ -160,13 +152,13 @@ func (enc QueryEncoder) writeDDocument(ec bsoncodec.EncodeContext, vw bsonrw.Val
 	return dw.WriteDocumentEnd()
 }
 
-func (enc QueryEncoder) writeArray(ec bsoncodec.EncodeContext, vw bsonrw.ValueWriter, elemType reflect.Type, val reflect.Value) error {
+func (enc QueryEncoder) writeArray(ec bson.EncodeContext, vw bson.ValueWriter, elemType reflect.Type, val reflect.Value) error {
 	aw, err := vw.WriteArray()
 	if err != nil {
 		return err
 	}
 
-	var encoder bsoncodec.ValueEncoder
+	var encoder bson.ValueEncoder
 	var prevType reflect.Type
 
 	for idx := 0; idx < val.Len(); idx++ {
@@ -209,7 +201,7 @@ func (enc QueryEncoder) writeArray(ec bsoncodec.EncodeContext, vw bsonrw.ValueWr
 	return aw.WriteArrayEnd()
 }
 
-func (enc QueryEncoder) encodeElement(ec bsoncodec.EncodeContext, dw bsonrw.DocumentWriter, e primitive.E) error {
+func (enc QueryEncoder) encodeElement(ec bson.EncodeContext, dw bson.DocumentWriter, e bson.E) error {
 	vw, err := dw.WriteDocumentElement(e.Key)
 	if err != nil {
 		return err
@@ -261,7 +253,7 @@ func (enc QueryEncoder) lookupReflectValue(val reflect.Value) reflect.Value {
 	return val
 }
 
-func (enc QueryEncoder) lookupEncoder(ec bsoncodec.EncodeContext, typ reflect.Type) (bsoncodec.ValueEncoder, error) {
+func (enc QueryEncoder) lookupEncoder(ec bson.EncodeContext, typ reflect.Type) (bson.ValueEncoder, error) {
 	if typ.ConvertibleTo(tD) {
 		return enc, nil
 	} else if typ.ConvertibleTo(tA) {

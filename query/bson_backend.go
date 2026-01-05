@@ -10,18 +10,15 @@ import (
 	"strings"
 	"sync"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/bsoncodec"
-	"go.mongodb.org/mongo-driver/bson/bsonrw"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-var (
-	bvwPool  = bsonrw.NewBSONValueWriterPool()
-	buffPool = sync.Pool{New: func() interface{} {
-		return &bytes.Buffer{}
-	}}
-)
+// bvwPool  = bson.NewBSONValueWriterPool()
+var buffPool = sync.Pool{New: func() interface{} {
+	return &bytes.Buffer{}
+}}
+
+var defaultRegistry = bson.NewRegistry()
 
 func MustPrepare(query string) *PreparedQuery {
 	pq, err := Prepare(query)
@@ -87,12 +84,12 @@ func (enc PreparedQuery) Compile(params ...interface{}) (CompiledQuery, error) {
 	buff := buffPool.Get().(*bytes.Buffer)
 	buff.Reset()
 
-	vw := bvwPool.Get(buff)
-	defer bvwPool.Put(vw)
+	// vw := bvwPool.Get(buff)
+	// defer bvwPool.Put(vw)
 
 	wc := writeContext{
-		vw: vw,
-		ec: bsoncodec.EncodeContext{Registry: bson.DefaultRegistry},
+		vw: bson.NewDocumentWriter(buff),
+		ec: bson.EncodeContext{Registry: defaultRegistry},
 	}
 
 	err = encodeQuery(wc, enc.node, prmMap)
@@ -120,10 +117,10 @@ func encodeQuery(wc writeContext, node *Node, prmMap map[string]interface{}) err
 }
 
 type writeContext struct {
-	ec bsoncodec.EncodeContext
-	dw bsonrw.DocumentWriter
-	aw bsonrw.ArrayWriter
-	vw bsonrw.ValueWriter
+	ec bson.EncodeContext
+	dw bson.DocumentWriter
+	aw bson.ArrayWriter
+	vw bson.ValueWriter
 }
 
 type docFunc func(wc writeContext) (writeContext, error)
@@ -449,7 +446,7 @@ func encodeValue(
 			return fmt.Errorf("invalid object id")
 		}
 
-		var oid primitive.ObjectID
+		var oid bson.ObjectID
 		copy(oid[:], v)
 
 		return wc.vw.WriteObjectID(oid)
